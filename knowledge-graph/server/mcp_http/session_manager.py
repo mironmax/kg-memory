@@ -10,7 +10,7 @@ import time
 import uuid
 from functools import wraps
 from pathlib import Path
-from core.constants import (SESSION_ID_LENGTH, SESSION_TTL_SECONDS, memory_project_root,
+from core.constants import (SESSION_ID_LENGTH, SESSION_TTL_SECONDS, memory_project_root, path_within,
                             safe_project_path, sessions_file_path)
 
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ def safe_transcript_path(transcript_path: str) -> str | None:
     if not resolved.endswith(".jsonl"):
         return None
     for root in roots:
-        if (resolved + "/").startswith(os.path.realpath(root) + "/"):
+        if path_within(resolved, os.path.realpath(root)):
             return resolved
     return None
 

@@ -44,6 +44,7 @@ from core.constants import (
     TOOL_EVENTS_MAX_KEYS,
     get_storage_root,
     memory_project_root,
+    path_within,
     project_graph_path,
     project_namespace,
     safe_project_path,
@@ -511,14 +512,14 @@ def file_key(target: str, project_path: str) -> str:
     """Project-relative path when inside the project, else the real path."""
     real = os.path.realpath(os.path.expanduser(target))
     root = os.path.realpath(project_path)
-    if (real + "/").startswith(root + "/"):
+    if path_within(real, root):
         return os.path.relpath(real, root)
     return real
 
 
 def _normalize_file(target: str, project_path: str) -> str | None:
     """file_key, or None for paths too transient to be worth a capture nudge."""
-    probe = os.path.realpath(target) + "/"
+    probe = os.path.realpath(target).replace(os.sep, "/") + "/"
     if any(frag in probe for frag in _NOISE_FRAGMENTS):
         return None
     return file_key(target, project_path)

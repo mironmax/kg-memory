@@ -481,7 +481,8 @@ def create_mcp_server() -> Server:
                     elif cwd and bound:
                         # Never re-bound: seen-state must not carry across projects.
                         root = str(Path(cwd).resolve())
-                        if not (root + "/").startswith(bound + "/"):
+                        from core.constants import path_within
+                        if not path_within(root, bound):
                             notice = (f"\n\nThis session stays bound to {bound}; cwd {root} "
                                       f"was ignored. For memory of {root}, start a separate "
                                       f"session: kg_read(cwd='{root}') without session_id.")

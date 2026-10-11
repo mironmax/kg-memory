@@ -370,6 +370,28 @@ def test_validation():
     check("invalid rel rejected", raises(validate_rel, "has space"))
 
 
+def test_path_within():
+    print("path containment:")
+    import ntpath
+    from core import constants
+    check("same path is within", constants.path_within("/home/u", "/home/u"))
+    check("child is within", constants.path_within("/home/u/proj", "/home/u"))
+    check("sibling prefix is not", not constants.path_within("/home/user2", "/home/u"))
+    check("parent is not", not constants.path_within("/home", "/home/u"))
+    # The same function on Windows paths: compare by components, never by "/".
+    saved = constants.os.path
+    try:
+        constants.os.path = ntpath
+        check("windows child is within",
+              constants.path_within(r"C:\Users\u\.cache\proj", r"C:\Users\u"))
+        check("windows other drive is not",
+              not constants.path_within(r"D:\a\repo", r"C:\Users\u"))
+        check("windows sibling prefix is not",
+              not constants.path_within(r"C:\Users\u2", r"C:\Users\u"))
+    finally:
+        constants.os.path = saved
+
+
 def main():
     print("=== core regression tests ===")
     test_healer()
@@ -378,6 +400,7 @@ def main():
     test_orphan_order()
     test_promotion_flags()
     test_validation()
+    test_path_within()
     print(f"\n{_PASS} passed, {_FAIL} failed")
     sys.exit(1 if _FAIL else 0)
 
