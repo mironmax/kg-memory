@@ -4,6 +4,9 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Fixed
+- **`kg setup` connects the ChatGPT desktop app without a separate Codex CLI.** The app's Work mode is Codex and shares its plugins with the command-line tool, but setup looked only for a `codex` command on PATH, so a user with just the app got no plugin. Setup, doctor, update and uninstall now fall back to the Codex the app bundles. Its hooks message also says where the app asks for trust.
+
 ### Docs
 - **A guide to the memory in the desktop apps** (wiki: Desktop Apps). What Claude Desktop's Code tab, Cowork and Chat and the ChatGPT app's Work and Chat modes each get from the memory, how to point a chat at a project once through a Desktop Project's instructions, and the limits of each surface. The plugin README's Desktop section now says the same.
 
