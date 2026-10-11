@@ -94,7 +94,7 @@ kg version
 
 Claude Desktop uses the same memory as another client of the shared server. Its "Add custom connector" dialog won't take a local URL, because those connectors are contacted from Anthropic's cloud. So `kg setup` writes Desktop's config file instead, pointing it at `kg mcp` (macOS and Linux). Fully quit and reopen Desktop afterwards.
 
-Desktop's **Code tab** runs the Claude Code hooks: preload, prompt recall and file recall work as in the terminal. **Cowork** and **Chat** run no hooks, so memory arrives only when the agent reads it. Attaching a project folder (Project or folder → Add folder, which opens Cowork) lets that read find the project on its own. A chat needs the project path, either in the message or once in a Desktop Project's instructions. The [Claude Desktop guide](https://github.com/mironmax/kg-memory/wiki/Claude-Desktop) has the instruction to paste and the limits of each surface.
+Desktop's **Code tab** runs the Claude Code hooks: preload, prompt recall and file recall work as in the terminal. **Cowork** and **Chat** run no hooks, so memory arrives only when the agent reads it. Attaching a project folder (Project or folder → Add folder, which opens Cowork) lets that read find the project on its own. A chat needs the project path, either in the message or once in a Desktop Project's instructions. The [desktop apps guide](https://github.com/mironmax/kg-memory/wiki/Desktop-Apps) has the instruction to paste and the limits of each surface.
 
 ---
 
@@ -116,7 +116,7 @@ Both harnesses talk to one local server, so a lesson captured in Codex is recall
 | `/kg-scout` | Mines Claude Code history and Codex rollouts; resumed rollouts use per-file cursors |
 | Visual editor | Discovers stored project graphs through the server, including Codex-only projects |
 | Background upkeep | Opt-in; the selected runner determines which subscription it spends |
-| Codex desktop | Checked on Linux; this is not a verification of every desktop platform |
+| ChatGPT desktop app | Work mode runs the plugin with its hooks; Chat mode has no local tools ([desktop apps guide](https://github.com/mironmax/kg-memory/wiki/Desktop-Apps)). Checked on Linux |
 | macOS | The test suite runs in CI (report-only); the Codex integration is checked on Linux |
 | Windows | Not supported |
 

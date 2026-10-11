@@ -5,7 +5,7 @@ All notable changes to this project are documented here.
 ## [Unreleased]
 
 ### Docs
-- **A guide to the memory in Claude Desktop** (wiki: Claude Desktop). What the Code tab, Cowork and Chat each get from the memory, how to point a chat at a project once through a Desktop Project's instructions, and the limits of each surface. The plugin README's Desktop section now says the same.
+- **A guide to the memory in the desktop apps** (wiki: Desktop Apps). What Claude Desktop's Code tab, Cowork and Chat and the ChatGPT app's Work and Chat modes each get from the memory, how to point a chat at a project once through a Desktop Project's instructions, and the limits of each surface. The plugin README's Desktop section now says the same.
 
 ## [0.15.0] - 2026-10-10
 
