@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Docs
+- **A guide to the memory in the desktop apps** (wiki: Desktop Apps). What Claude Desktop's Code tab, Cowork and Chat and the ChatGPT app's Work and Chat modes each get from the memory, how to point a chat at a project once through a Desktop Project's instructions, and the limits of each surface. The plugin README's Desktop section now says the same.
+
 ## [0.15.0] - 2026-10-10
 
 Docs that match the code, and a server hardened by a second formal pass. Every document was checked claim by claim against the source, and the READMEs now lead with what the memory does for you, what a day with it looks like, and an honest account of its maturity and costs. The formal pass modelled the parts added since 0.11 in Lean and fixed 26 findings (F6, F7, F13–F32, F34–F37), each reproduced against the real code and covered by a test; two more (F33, F38) are recorded as open. Background upkeep is now opt-in, the visual editor shows project changes live, and `kg_put_node` refuses, once, a write that would drop stored notes.

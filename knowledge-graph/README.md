@@ -92,9 +92,9 @@ kg version
 
 ## Claude Desktop
 
-Claude Desktop uses the same memory as another client of the shared server. Its "Add custom connector" dialog won't take a local URL, because those connectors are contacted from Anthropic's cloud. So `kg setup` writes Desktop's config file instead, pointing it at `kg mcp` (macOS and Linux). Fully quit and reopen Desktop afterwards. Cowork sessions receive the server through Desktop's own sandbox bridge.
+Claude Desktop uses the same memory as another client of the shared server. Its "Add custom connector" dialog won't take a local URL, because those connectors are contacted from Anthropic's cloud. So `kg setup` writes Desktop's config file instead, pointing it at `kg mcp` (macOS and Linux). Fully quit and reopen Desktop afterwards.
 
-Desktop's **Code tab** runs the Claude Code hooks, including preload and file recall. **Desktop chat** uses the MCP tools without those hooks, so memory arrives on the first `kg_read`. Without a working directory that read opens user memory only; name the project's absolute path to attach its graph.
+Desktop's **Code tab** is Claude Code with its hooks, so the memory works there as in the terminal. **Cowork** and **Chat** have the memory tools but no hooks: nothing arrives on its own, and the agent reads when it decides to. Attach the project folder in Cowork, and give a chat its project once through a Desktop Project's instructions. The [desktop apps guide](https://github.com/mironmax/kg-memory/wiki/Desktop-Apps) walks through each place, the ChatGPT app included.
 
 ---
 
@@ -116,7 +116,7 @@ Both harnesses talk to one local server, so a lesson captured in Codex is recall
 | `/kg-scout` | Mines Claude Code history and Codex rollouts; resumed rollouts use per-file cursors |
 | Visual editor | Discovers stored project graphs through the server, including Codex-only projects |
 | Background upkeep | Opt-in; the selected runner determines which subscription it spends |
-| Codex desktop | Checked on Linux; this is not a verification of every desktop platform |
+| ChatGPT desktop app | Work mode runs the plugin with its hooks; Chat mode has no local tools ([desktop apps guide](https://github.com/mironmax/kg-memory/wiki/Desktop-Apps)). Checked on Linux |
 | macOS | The test suite runs in CI (report-only); the Codex integration is checked on Linux |
 | Windows | Not supported |
 
