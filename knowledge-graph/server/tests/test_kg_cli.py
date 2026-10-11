@@ -45,6 +45,8 @@ class Sandbox:
             "XDG_STATE_HOME": str(self.home / ".local/state"),
             "KG_AUTOCOMMIT_INTERVAL": "0",
             "KG_CHORES": "0",
+            # The real machine's ChatGPT app must not stand in for a Codex CLI.
+            "KG_CODEX_APP_BINARIES": "",
         }
         # kg keeps a non-default port's state in its own folder
         self.state = self.home / f".local/state/knowledge-graph/port-{self.port}"
@@ -275,6 +277,27 @@ class SetupTests(unittest.TestCase):
         self.assertIn("[claude-automemory]", out.stdout)
         self.assertEqual(settings.read_text(), "{}")
         self.assertIn("rerun with --yes", box.kg("setup").stdout)
+
+    def test_chatgpt_app_codex_installs_the_plugin_without_a_codex_cli(self):
+        box = Sandbox(self)
+        calls = box.home / "codex-calls"
+        app = box.write("apps/chatgpt/resources/codex", f"""#!/bin/sh
+echo "$@" >> {calls}
+[ "$1 $2" = "plugin add" ] && mkdir -p "$HOME/.codex/plugins/cache/maxim-plugins/knowledge-graph/0.0.2"
+exit 0
+""")
+        app.chmod(0o755)
+        self.assertIn("– not installed", box.kg("doctor").stdout.split("Codex")[1].split("\n\n")[0])
+        box.env["KG_CODEX_APP_BINARIES"] = str(app)
+        out = box.kg("setup", "--yes", "--only", "codex-plugin")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn("allow them when the ChatGPT app asks", out.stdout)
+        self.assertEqual(calls.read_text().splitlines(), [
+            "plugin marketplace list", "plugin marketplace add mironmax/kg-memory",
+            "plugin add knowledge-graph@maxim-plugins"])
+        codex = box.kg("doctor").stdout.split("Codex")[1].split("\n\n")[0]
+        self.assertIn("plugin 0.0.2", codex)
+        self.assertNotIn("not installed", codex)
 
     def test_settings_steps_apply_with_backups(self):
         box = Sandbox(self)

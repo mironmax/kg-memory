@@ -564,6 +564,21 @@ class ClaudeDesktop(Step):
 CODEX_HOME = Path(os.environ.get("CODEX_HOME") or HOME / ".codex")
 
 
+# The ChatGPT desktop app bundles its own Codex and shares CODEX_HOME with the
+# CLI, so its copy installs the plugin when no codex is on PATH. The Linux path
+# is the AUR chatgpt-desktop package's; the macOS one is unverified.
+CODEX_APP_BINARIES = tuple(filter(None, os.environ.get(
+    "KG_CODEX_APP_BINARIES",
+    os.pathsep.join(("/usr/lib/chatgpt/resources/codex",
+                     "/Applications/ChatGPT.app/Contents/Resources/codex"))).split(os.pathsep)))
+
+
+def codex_binary() -> str | None:
+    """The Codex CLI, else the copy inside the ChatGPT desktop app."""
+    return find_binary("codex") or next(
+        (path for path in CODEX_APP_BINARIES if os.access(path, os.X_OK)), None)
+
+
 def codex_plugin_version() -> str | None:
     cache = CODEX_HOME / "plugins/cache" / MARKET / "knowledge-graph"
     versions = [p.name for p in cache.iterdir() if p.is_dir()] if cache.is_dir() else []
@@ -574,7 +589,7 @@ class CodexPlugin(Step):
     key, group, title = "codex-plugin", "Codex", "plugin installed and current"
 
     def check(self, ctx):
-        if not find_binary("codex"):
+        if not codex_binary():
             return OFF, "not installed"
         have = codex_plugin_version()
         if not have:
@@ -584,22 +599,22 @@ class CodexPlugin(Step):
         return OK, f"plugin {have}"
 
     def apply(self, ctx):
-        codex = find_binary("codex")
+        codex = codex_binary()
         if MARKET in run([codex, "plugin", "marketplace", "list"]):
             run([codex, "plugin", "marketplace", "upgrade", MARKET])
         else:
             run([codex, "plugin", "marketplace", "add", REPO])
         run([codex, "plugin", "add", PLUGIN])
         return (f"plugin {codex_plugin_version()}; Codex will ask you to trust its hooks: "
-                "run /hooks in Codex once")
+                "run /hooks in Codex once, or allow them when the ChatGPT app asks")
 
     def undo_plan(self, ctx):
-        if find_binary("codex") and codex_plugin_version():
+        if codex_binary() and codex_plugin_version():
             return "remove the Codex plugin"
         return None
 
     def undo(self, ctx):
-        run([find_binary("codex"), "plugin", "remove", PLUGIN])
+        run([codex_binary(), "plugin", "remove", PLUGIN])
         return "Codex plugin removed"
 
 
@@ -607,7 +622,7 @@ class CodexHooks(Step):
     key, group, title = "codex-hooks", "Codex", "hooks trusted"
 
     def check(self, ctx):
-        if not find_binary("codex") or not codex_plugin_version():
+        if not codex_binary() or not codex_plugin_version():
             return OFF, "not installed"
         try:
             config = (CODEX_HOME / "config.toml").read_text()
@@ -616,7 +631,8 @@ class CodexHooks(Step):
         untrusted = [h for h in CODEX_HOOKS if f'"{PLUGIN}:hooks/hooks.json:{h}:0:0"' not in config]
         if untrusted:
             return MANUAL, (f"not trusted: {', '.join(untrusted)} (no preload or recall): "
-                            "run /hooks in Codex, trust knowledge-graph, start a new session")
+                            "run /hooks in Codex and trust knowledge-graph (the ChatGPT app asks in its "
+                            "hook review), then start a new session")
         return OK, "trusted (Codex asks again when their content changes)"
 
 
