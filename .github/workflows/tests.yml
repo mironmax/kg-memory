@@ -81,3 +81,83 @@ jobs:
         run: |
           bash -n ../../recommended-setup/statusline-agy.sh
           "$RUNNER_TEMP/venv/bin/python" ../../recommended-setup/tests/test_statusline_agy.py
+
+  # Report-only census of native Windows, which is not supported yet: these
+  # runs show which tests fail there and why. Every test file runs to the end,
+  # and the job never fails the workflow.
+  windows:
+    runs-on: windows-latest
+    continue-on-error: true
+    timeout-minutes: 60
+    defaults:
+      run:
+        # Git Bash, so the test loop matches the Linux one.
+        shell: bash
+        working-directory: knowledge-graph/server
+    steps:
+      # The runner's git defaults to core.autocrlf=true, which would hand the
+      # tests CRLF files that an install from the package never has.
+      - name: Check out with LF line endings
+        working-directory: .
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+          cache: pip
+          cache-dependency-path: |
+            knowledge-graph/server/requirements.txt
+            knowledge-graph/visual-editor/requirements.txt
+
+      - name: Create a fresh virtual environment
+        run: |
+          venv="$(cygpath -u "$RUNNER_TEMP")/venv"
+          python -m venv "$venv"
+          "$venv/Scripts/python.exe" -m pip install --disable-pip-version-check -r requirements.txt -r ../visual-editor/requirements.txt
+          "$venv/Scripts/python.exe" --version
+          echo "KG_TEST_PY=$venv/Scripts/python.exe" >> "$GITHUB_ENV"
+
+      # Python's home on Windows is USERPROFILE, not Git Bash's HOME, so ask
+      # Python where ~/.cache is (the tests put their project dirs there).
+      - name: Prepare the test environment
+        run: |
+          echo "HOME=$HOME USERPROFILE=$USERPROFILE"
+          "$KG_TEST_PY" -c "from pathlib import Path; d = Path.home() / '.cache'; d.mkdir(parents=True, exist_ok=True); print(d)"
+
+      - name: Check that the kg command imports
+        run: |
+          "$KG_TEST_PY" ../cli/kg.py --help
+
+      - name: Run every tests/test_*.py
+        if: ${{ !cancelled() }}
+        run: |
+          py="$KG_TEST_PY"
+          failed=()
+          summary=""
+          for f in tests/test_*.py; do
+            start=$EPOCHREALTIME
+            echo "::group::$f"
+            # A hang must not end the census: each file gets ten minutes.
+            if timeout 600 "$py" "$f"; then result=PASS; else result=FAIL; failed+=("$f"); fi
+            echo "::endgroup::"
+            secs=$(awk -v a="$start" -v b="$EPOCHREALTIME" 'BEGIN { printf "%.1f", b - a }')
+            line=$(printf '%s  %-28s %6ss' "$result" "$f" "$secs")
+            echo "$line"
+            summary+="$line"$'\n'
+          done
+          echo
+          echo "$summary"
+          { echo '```'; echo "$summary"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          if [ ${#failed[@]} -gt 0 ]; then
+            echo "Failed: ${failed[*]}"
+            exit 1
+          fi
+          echo "All test files passed."
+
+      - name: Run editor API and UI behavior tests
+        if: ${{ !cancelled() }}
+        run: |
+          "$KG_TEST_PY" ../visual-editor/tests/test_api.py
+          node ../visual-editor/tests/test_ui.mjs
