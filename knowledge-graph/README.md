@@ -92,9 +92,9 @@ kg version
 
 ## Claude Desktop
 
-Claude Desktop uses the same memory as another client of the shared server. Its "Add custom connector" dialog won't take a local URL, because those connectors are contacted from Anthropic's cloud. So `kg setup` writes Desktop's config file instead, pointing it at `kg mcp` (macOS and Linux). Fully quit and reopen Desktop afterwards. Cowork sessions receive the server through Desktop's own sandbox bridge.
+Claude Desktop uses the same memory as another client of the shared server. Its "Add custom connector" dialog won't take a local URL, because those connectors are contacted from Anthropic's cloud. So `kg setup` writes Desktop's config file instead, pointing it at `kg mcp` (macOS and Linux). Fully quit and reopen Desktop afterwards.
 
-Desktop's **Code tab** runs the Claude Code hooks, including preload and file recall. **Desktop chat** uses the MCP tools without those hooks, so memory arrives on the first `kg_read`. Without a working directory that read opens user memory only; name the project's absolute path to attach its graph.
+Desktop's **Code tab** runs the Claude Code hooks: preload, prompt recall and file recall work as in the terminal. **Cowork** and **Chat** run no hooks, so memory arrives only when the agent reads it. Attaching a project folder (Project or folder → Add folder, which opens Cowork) lets that read find the project on its own. A chat needs the project path, either in the message or once in a Desktop Project's instructions. The [Claude Desktop guide](https://github.com/mironmax/kg-memory/wiki/Claude-Desktop) has the instruction to paste and the limits of each surface.
 
 ---
 
