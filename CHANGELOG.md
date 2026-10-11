@@ -2,10 +2,15 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased]
+## [0.15.1] - 2026-10-11
+
+The memory in the desktop apps, and the first steps toward Windows. A new guide explains what Claude Desktop's Code tab, Cowork and Chat and the ChatGPT app's Work and Chat modes each get from the memory and what to do in each; `kg setup` now connects the ChatGPT app even without a separate Codex CLI. On Windows, which is still not supported, `kg` now loads and a report-only CI job tracks the test suite there (30 of 45 test files pass).
 
 ### Fixed
 - **`kg setup` connects the ChatGPT desktop app without a separate Codex CLI.** The app's Work mode is Codex and shares its plugins with the command-line tool, but setup looked only for a `codex` command on PATH, so a user with just the app got no plugin. Setup, doctor, update and uninstall now fall back to the Codex the app bundles. Its hooks message also says where the app asks for trust.
+
+### Changed
+- **Groundwork for Windows (not yet supported).** `kg` no longer fails to load there: its lifecycle lock falls back to the Windows file lock when `fcntl` is missing. Path containment (projects within home, transcripts, the session's bound project, file recall) compares path components instead of strings joined with `/`, the same answer on every OS. A report-only Windows CI job runs every test file and lists what still fails. Nothing changes on Linux or macOS.
 
 ### Docs
 - **A guide to the memory in the desktop apps** (wiki: Desktop Apps). What Claude Desktop's Code tab, Cowork and Chat and the ChatGPT app's Work and Chat modes each get from the memory, how to point a chat at a project once through a Desktop Project's instructions, and the limits of each surface. The plugin README's Desktop section now says the same.
