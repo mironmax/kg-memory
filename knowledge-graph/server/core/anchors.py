@@ -68,7 +68,7 @@ def _locations(path: str, root: Path | None, home: Path | None) -> list[Path]:
         return [home / path[2:]] if home else []
     if path.startswith("~"):
         return []                       # ~otheruser: not ours to resolve
-    if path.startswith("/"):
+    if os.path.isabs(path):
         return [Path(path)]
     # Relative means relative to the project. A user graph has no such base,
     # and guessing one (home) would flag every project-relative entry there.
@@ -216,7 +216,7 @@ def _format_like(original: str, target: Path, root: Path, home: Path | None,
             out = "~/" + target.relative_to(home).as_posix()
         except ValueError:
             out = target.as_posix()
-    elif original.startswith("/"):
+    elif os.path.isabs(original):
         out = target.as_posix()
     else:
         out = target.relative_to(root).as_posix()

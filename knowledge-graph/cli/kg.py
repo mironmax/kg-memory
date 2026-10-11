@@ -8,7 +8,6 @@ server relative to this file.
 
 import argparse
 import contextlib
-import fcntl
 import json
 import os
 import shutil
@@ -19,6 +18,11 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
+
+try:
+    import fcntl
+except ImportError:  # Windows: lifecycle_lock falls back to msvcrt
+    fcntl = None
 
 ROOT = Path(__file__).resolve().parents[1]
 SERVER_SCRIPT = ROOT / "server" / "mcp_streamable_server.py"
@@ -204,8 +208,30 @@ def lifecycle_lock():
     would find the server on its way out "already running"."""
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     with open(STATE_DIR / "start.lock", "w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+        if fcntl is not None:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            yield
+        else:
+            with _msvcrt_lock(lock):
+                yield
+
+
+@contextlib.contextmanager
+def _msvcrt_lock(lock):
+    """Windows stand-in for flock: an exclusive lock on the file's first byte.
+    LK_LOCK gives up after about ten seconds, so keep asking, as flock waits."""
+    import msvcrt
+    while True:
+        try:
+            msvcrt.locking(lock.fileno(), msvcrt.LK_LOCK, 1)
+            break
+        except OSError:
+            continue
+    try:
         yield
+    finally:
+        lock.seek(0)
+        msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
 
 
 def start() -> int:

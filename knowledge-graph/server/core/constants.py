@@ -520,6 +520,17 @@ def get_storage_root() -> Path:
     return Path(os.getenv("KG_STORAGE_ROOT", str(DEFAULT_STORAGE_ROOT)))
 
 
+def path_within(path: str, root: str) -> bool:
+    """Is `path` `root` itself or below it? Both already resolved.
+
+    Compared by path components, not by joining "/": the same answer on POSIX
+    and Windows, where a path on another drive is simply outside."""
+    try:
+        return os.path.commonpath([path, root]) == os.path.normpath(root)
+    except ValueError:      # different drives, or relative mixed with absolute
+        return False
+
+
 def safe_project_path(project_root: str) -> Path:
     """Resolve and validate a user-supplied project root.
 
@@ -531,7 +542,7 @@ def safe_project_path(project_root: str) -> Path:
     # Resolve via os.path.realpath — avoids symlink games
     resolved_str = os.path.realpath(project_root)
     # Check containment on strings before constructing a Path from user input
-    if not (resolved_str + "/").startswith(str(home) + "/"):
+    if not path_within(resolved_str, str(home)):
         raise ValueError(f"Project path must be within home directory: {resolved_str}")
     return Path(resolved_str)
 
