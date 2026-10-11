@@ -63,6 +63,7 @@ Afterwards:
 
 - **If you use Codex**, run `/hooks` in Codex and trust the knowledge-graph hooks. Codex keeps plugin hooks off until you approve them.
 - **If you use Claude Desktop**, fully quit and reopen it.
+- **Working in Claude Desktop or the ChatGPT app?** The memory comes with you, but how much arrives on its own depends on where you work in them. The [desktop apps guide](https://github.com/mironmax/kg-memory/wiki/Desktop-Apps) shows what to do in each.
 - Run `kg doctor` to check that everything is connected, then start a new session.
 
 `kg update` keeps it current; `kg uninstall` reverses setup (marketplace auto-update stays on) and keeps your memory.
