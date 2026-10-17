@@ -13,6 +13,7 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -618,22 +619,65 @@ class CodexPlugin(Step):
         return "Codex plugin removed"
 
 
+def codex_hook_trust(binary: str, timeout: float = 15) -> dict[str, str] | None:
+    """{hook key: trust status} as Codex's app server reports it, or None.
+
+    Codex trusts a plugin hook by a hash of its declaration and of the
+    plugin's files, so an update can void the trust while config.toml still
+    names the hook; only Codex can say which. The server answers over stdio
+    and exits at end of input before answering, so input stays open until
+    the reply arrives.
+    """
+    try:
+        proc = subprocess.Popen([binary, "app-server"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                stderr=subprocess.DEVNULL, text=True)
+    except OSError:
+        return None
+    timer = threading.Timer(timeout, proc.kill)
+    timer.start()
+    try:
+        for message in ({"jsonrpc": "2.0", "id": 0, "method": "initialize",
+                         "params": {"clientInfo": {"name": "kg-doctor", "version": kg.version()}}},
+                        {"jsonrpc": "2.0", "method": "initialized"},
+                        {"jsonrpc": "2.0", "id": 1, "method": "hooks/list", "params": {"cwds": [str(HOME)]}}):
+            proc.stdin.write(json.dumps(message) + "\n")
+        proc.stdin.flush()
+        for line in proc.stdout:
+            reply = json.loads(line)
+            if reply.get("id") == 1:
+                return {hook["key"]: hook.get("trustStatus")
+                        for entry in reply["result"]["data"] for hook in entry.get("hooks", [])}
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    finally:
+        timer.cancel()
+        proc.kill()
+        proc.wait()
+    return None
+
+
 class CodexHooks(Step):
     key, group, title = "codex-hooks", "Codex", "hooks trusted"
 
     def check(self, ctx):
-        if not codex_binary() or not codex_plugin_version():
+        binary = codex_binary()
+        if not binary or not codex_plugin_version():
             return OFF, "not installed"
-        try:
-            config = (CODEX_HOME / "config.toml").read_text()
-        except OSError:
-            config = ""
-        untrusted = [h for h in CODEX_HOOKS if f'"{PLUGIN}:hooks/hooks.json:{h}:0:0"' not in config]
+        keys = {h: f"{PLUGIN}:hooks/hooks.json:{h}:0:0" for h in CODEX_HOOKS}
+        trust = codex_hook_trust(binary)
+        if trust is None:   # an older Codex: fall back to the hooks config.toml names
+            try:
+                config = (CODEX_HOME / "config.toml").read_text()
+            except OSError:
+                config = ""
+            trust = {key: "trusted" for key in keys.values() if f'"{key}"' in config}
+        untrusted = [h if trust.get(key) in (None, "untrusted") else f"{h} ({trust[key]})"
+                     for h, key in keys.items() if trust.get(key) != "trusted"]
         if untrusted:
             return MANUAL, (f"not trusted: {', '.join(untrusted)} (no preload or recall): "
                             "run /hooks in Codex and trust knowledge-graph (the ChatGPT app asks in its "
                             "hook review), then start a new session")
-        return OK, "trusted (Codex asks again when their content changes)"
+        return OK, "trusted (Codex asks again when the plugin changes)"
 
 
 # ── Antigravity ──────────────────────────────────────────────────────────────

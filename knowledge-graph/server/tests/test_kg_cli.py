@@ -261,6 +261,22 @@ class DoctorTests(unittest.TestCase):
         self.assertIn("not trusted: session_start, user_prompt_submit, post_tool_use", out)
         self.assertIn("✗ plugin not installed", out)  # Antigravity
 
+    def test_codex_trust_comes_from_codex_not_the_config(self):
+        # config.toml still names every hook, but Codex reports one as modified,
+        # as it does after an update changes the plugin's files.
+        box = Sandbox(self)
+        keys = [f"knowledge-graph@maxim-plugins:hooks/hooks.json:{h}:0:0"
+                for h in ("session_start", "user_prompt_submit", "post_tool_use")]
+        reply = json.dumps({"id": 1, "result": {"data": [{"hooks": [
+            {"key": key, "trustStatus": "modified" if i == 0 else "trusted"} for i, key in enumerate(keys)]}]}})
+        box.write(".local/bin/codex", "#!/bin/sh\nwhile read -r line; do case \"$line\" in\n"
+                  f"  *'\"id\": 1'*) echo '{reply}' ;;\nesac; done\n").chmod(0o755)
+        (box.home / ".codex/plugins/cache/maxim-plugins/knowledge-graph/0.0.1").mkdir(parents=True)
+        box.write(".codex/config.toml", "".join(f'[hooks.state."{key}"]\n' for key in keys))
+        out = box.kg("doctor").stdout
+        self.assertIn("not trusted: session_start (modified)", out)
+        self.assertNotIn("user_prompt_submit", out)
+
     def test_auto_mode_is_a_suggestion_not_a_problem(self):
         box = Sandbox(self)
         fake_binaries(box, "claude")
