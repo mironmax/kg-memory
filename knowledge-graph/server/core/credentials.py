@@ -13,8 +13,6 @@ that lands there spreads and stays. Two rules, for two kinds of text:
 
 import re
 
-from .exceptions import KGError
-
 # Provider-issued shapes, matched case-sensitively. Checked against every
 # stored graph before shipping: no legitimate gist or note matched.
 _CREDENTIAL_SHAPES = (
@@ -49,6 +47,9 @@ def refuse_credentials(**fields) -> None:
     Each value is a string, a list of strings or None. The message never
     repeats the value.
     """
+    # Imported here: `kg doctor` loads this file on its own, outside the package.
+    from .exceptions import KGError
+
     for name, value in fields.items():
         for text in [value] if isinstance(value, str) else value or ():
             kind = credential_kind(text)
