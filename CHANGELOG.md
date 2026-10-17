@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Docs
+- **The Antigravity guide is current with agy 1.3.3.** It names the official marketplace added in 1.3.2 (this plugin installs from a local directory, now also through `/plugin`), records the signed-in checks passed on 1.3.3 (all but compaction, which 1.3.3 cannot trigger by hand), says how `/fork`, `/clear` and `--conversation` map to memory sessions, and states the maintenance runner's limit: a chore cannot read a reply above 3,500 bytes.
+
 ## [0.15.1] - 2026-10-11
 
 The memory in the desktop apps, and the first steps toward Windows. A new guide explains what Claude Desktop's Code tab, Cowork and Chat and the ChatGPT app's Work and Chat modes each get from the memory and what to do in each; `kg setup` now connects the ChatGPT app even without a separate Codex CLI. On Windows, which is still not supported, `kg` now loads and a report-only CI job tracks the test suite there (30 of 45 test files pass).
