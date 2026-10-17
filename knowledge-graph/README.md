@@ -171,7 +171,7 @@ Graph data lives under `~/.knowledge-graph/` by default (`KG_STORAGE_ROOT` can c
 - **User level:** `user.json`: cross-project knowledge
 - **Project level:** `projects/<slug>/graph.json`: codebase-specific
 - **Sessions:** `sessions.json`: session registry
-- **Tool-event counters:** `projects/<slug>/tool_events.json`: per-target read/fetch counts feeding the capture nudges and the activity part of the DEBT score
+- **Tool-event counters:** `projects/<slug>/tool_events.json`: per-target read/fetch counts feeding the capture nudges and the activity part of the DEBT score; fetched URLs are kept without their query or fragment
 - **Maintenance memory:** `maintain.json`: the maintenance agent's own lessons, never shown in sessions
 - **Logs:** `recall.jsonl` records what recall decided per prompt and tool event. `useful.jsonl` records endorsements, plus the credits a repeat, an added case or a maintenance pass gives (marked `via: "recurrence"`, `"note"` or `"maintenance"`); the evaluator counts only real use. `chores.jsonl` records every upkeep decision. All are size-capped. They stay out of git: the server lists them in the repository's `.git/info/exclude`, and recall drops search terms shaped like keys or tokens before logging them.
 - **Upkeep:** `chores.json` (your switch and settings, if any) and `chore_state.json` (spacing and daily counts)

@@ -18,7 +18,9 @@ from .exceptions import KGError
 # Provider-issued shapes, matched case-sensitively. Checked against every
 # stored graph before shipping: no legitimate gist or note matched.
 _CREDENTIAL_SHAPES = (
-    ("Anthropic or OpenAI API key", re.compile(r"\bsk-(?:ant-|proj-|svcacct-)?[A-Za-z0-9_-]{32,}")),
+    # Real keys mix digits and capitals; a long kebab id after "-sk-" does not.
+    ("Anthropic or OpenAI API key",
+     re.compile(r"\bsk-(?:ant-|proj-|svcacct-)?(?=[\w-]*\d)(?=[\w-]*[A-Z])[A-Za-z0-9_-]{32,}")),
     ("GitHub token", re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{50,})")),
     ("GitLab token", re.compile(r"\bglpat-[A-Za-z0-9_-]{20,}")),
     ("AWS access key", re.compile(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b")),
@@ -54,9 +56,9 @@ def refuse_credentials(**fields) -> None:
                 raise KGError(
                     f"Not written: what looks like a {kind} is in the {name}. "
                     "Memory is kept in history and shown to later sessions, so it "
-                    "never holds a secret's value. Write where the secret lives "
-                    "instead (a file path, the keyring entry, the environment "
-                    "variable's name) and send the write again."
+                    "never holds a secret's value. Remove the value and send the "
+                    "write again; where it helps, say where the secret is kept "
+                    "(a file path, a keyring entry, an environment variable's name)."
                 )
 
 

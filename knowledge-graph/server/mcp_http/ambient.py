@@ -24,6 +24,7 @@ import os
 import re
 import threading
 import time
+from urllib.parse import urlsplit
 
 from core.constants import (
     FILE_RECALL_REASON,
@@ -496,13 +497,29 @@ def _save_events(path, data: dict) -> None:
     os.replace(tmp, path)
 
 
+def _bare_url(url: str) -> str | None:
+    """The URL without user info, query or fragment, the parts that carry tokens.
+
+    The counters file is committed with the storage and the capture nudge
+    offers the target as a touch, so neither may keep a signed or keyed URL.
+    """
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return None
+    if not parts.scheme or not parts.netloc:
+        return None
+    host = parts.netloc.rpartition("@")[2]
+    return f"{parts.scheme}://{host}{parts.path}"
+
+
 def _extract_target(tool: str, tool_input: dict) -> tuple[str, str] | None:
     """(kind, raw target) for the tools we track; None for anything else."""
     if tool == "Read":
         target = tool_input.get("file_path")
         return ("read", target) if target else None
     if tool == "WebFetch":
-        target = tool_input.get("url")
+        target = _bare_url(tool_input.get("url") or "")
         return ("web", target) if target else None
     if tool == "WebSearch":
         target = tool_input.get("query")

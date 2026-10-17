@@ -55,6 +55,7 @@ BENIGN = [
     "YouTube channel UCINV7xyz12AbC34dEf56GhI",
     "token=valid redirects to /result?token=abc",
     "sk-learn is not a key; neither is task-sk-1",
+    "node task-sk-compaction-pass-for-the-long-kebab-identifiers-here",
 ]
 
 
@@ -110,10 +111,23 @@ def test_store_refuses():
           not any(k[:2] == ("token-location", "edge-end") for k in store.graphs["user"]["edges"]))
 
 
+def test_web_targets():
+    print("4. fetched URLs are counted without their secret-bearing parts")
+    from mcp_http.ambient import _extract_target
+    signed = "https://user:pw@bucket.example.test/a/b.png?X-Amz-Signature=abc123def456&t=1#frag"
+    check("drops user info, query and fragment",
+          _extract_target("WebFetch", {"url": signed}) == ("web", "https://bucket.example.test/a/b.png"),
+          _extract_target("WebFetch", {"url": signed}))
+    check("keeps a plain URL", _extract_target("WebFetch", {"url": "https://example.test/docs"})
+          == ("web", "https://example.test/docs"))
+    check("ignores what is not a URL", _extract_target("WebFetch", {"url": "not a url"}) is None)
+
+
 def main():
     test_shapes()
     test_recall_terms()
     test_store_refuses()
+    test_web_targets()
     print(f"\n{_PASS} passed, {_FAIL} failed")
     sys.exit(1 if _FAIL else 0)
 

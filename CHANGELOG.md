@@ -5,7 +5,11 @@ All notable changes to this project are documented here.
 ## [Unreleased]
 
 ### Security
-- **Credentials no longer reach storage history.** The storage folder is usually a git repository that the server commits on its own, and two paths could carry a pasted secret into it. The recall, endorsement and upkeep logs (`recall.jsonl`, `useful.jsonl`, `chores.jsonl`) were committed with the graphs, and `recall.jsonl` keeps search terms cut from each prompt, so a key typed into a prompt was committed as one term. The server and `kg commit` now list the logs in `.git/info/exclude` and untrack them once (the files stay on disk), and recall drops terms shaped like keys or hashes before searching or logging. `kg_put_node` and `kg_put_edge` also refuse a write whose text holds a credential (API keys and tokens of the common providers, private keys, JSON web tokens) and ask for where the secret lives instead. Commits made before this release still hold what they held; if a secret reached them, rotate it.
+The storage folder is usually a git repository the server commits on its own, so whatever reaches it stays in history. Three paths could carry a secret there; all three are closed. Commits made before this release still hold what they held: if a key reached them, rotate it.
+
+- **The logs stay out of git.** `recall.jsonl`, `useful.jsonl` and `chores.jsonl` were committed with the graphs, and `recall.jsonl` keeps search terms cut from each prompt, so a key typed into a prompt was committed as one term. The server and `kg commit` now list the logs in `.git/info/exclude` and untrack them once; the files stay on disk. Recall also drops terms shaped like keys or hashes before searching or logging. If you sync the storage between machines through git, update every machine, or an older one keeps committing the logs.
+- **Fetched URLs are counted without their query.** The capture counters (`projects/<slug>/tool_events.json`, committed) kept each fetched URL whole, and the capture nudge offered it as a touch, so a signed or keyed URL could reach both. They now keep scheme, host and path only.
+- **Memory refuses credentials.** `kg_put_node` and `kg_put_edge` refuse a write whose text holds an API key or token of a common provider, a private key or a JSON web token. The reply names the field and the kind, never the value, and asks for the write without it.
 
 ## [0.15.1] - 2026-10-11
 

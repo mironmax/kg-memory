@@ -99,7 +99,9 @@ def keep_logs_out_of_git(storage_root: Path) -> None:
             fh.write(lead + "\n".join(missing) + "\n")
     tracked = _run_git(["ls-files", "--", *UNTRACKED_LOGS], storage_root).stdout.split()
     if tracked:
-        _run_git(["rm", "--cached", "--quiet", "--", *tracked], storage_root)
+        rm = _run_git(["rm", "--cached", "--quiet", "--", *tracked], storage_root)
+        if rm.returncode != 0:
+            logger.warning(f"Auto-commit: could not untrack {tracked}: {rm.stderr.strip()}")
 
 
 def commit_storage(storage_root: Path) -> bool:
