@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Security
+- **Credentials no longer reach storage history.** The storage folder is usually a git repository that the server commits on its own, and two paths could carry a pasted secret into it. The recall, endorsement and upkeep logs (`recall.jsonl`, `useful.jsonl`, `chores.jsonl`) were committed with the graphs, and `recall.jsonl` keeps search terms cut from each prompt, so a key typed into a prompt was committed as one term. The server and `kg commit` now list the logs in `.git/info/exclude` and untrack them once (the files stay on disk), and recall drops terms shaped like keys or hashes before searching or logging. `kg_put_node` and `kg_put_edge` also refuse a write whose text holds a credential (API keys and tokens of the common providers, private keys, JSON web tokens) and ask for where the secret lives instead. Commits made before this release still hold what they held; if a secret reached them, rotate it.
+
 ## [0.15.1] - 2026-10-11
 
 The memory in the desktop apps, and the first steps toward Windows. A new guide explains what Claude Desktop's Code tab, Cowork and Chat and the ChatGPT app's Work and Chat modes each get from the memory and what to do in each; `kg setup` now connects the ChatGPT app even without a separate Codex CLI. On Windows, which is still not supported, `kg` now loads and a report-only CI job tracks the test suite there (30 of 45 test files pass).

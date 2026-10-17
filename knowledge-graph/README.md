@@ -173,7 +173,7 @@ Graph data lives under `~/.knowledge-graph/` by default (`KG_STORAGE_ROOT` can c
 - **Sessions:** `sessions.json`: session registry
 - **Tool-event counters:** `projects/<slug>/tool_events.json`: per-target read/fetch counts feeding the capture nudges and the activity part of the DEBT score
 - **Maintenance memory:** `maintain.json`: the maintenance agent's own lessons, never shown in sessions
-- **Logs:** `recall.jsonl` records what recall decided per prompt and tool event. `useful.jsonl` records endorsements, plus the credits a repeat, an added case or a maintenance pass gives (marked `via: "recurrence"`, `"note"` or `"maintenance"`); the evaluator counts only real use. `chores.jsonl` records every upkeep decision. All are size-capped.
+- **Logs:** `recall.jsonl` records what recall decided per prompt and tool event. `useful.jsonl` records endorsements, plus the credits a repeat, an added case or a maintenance pass gives (marked `via: "recurrence"`, `"note"` or `"maintenance"`); the evaluator counts only real use. `chores.jsonl` records every upkeep decision. All are size-capped. They stay out of git: the server lists them in the repository's `.git/info/exclude`, and recall drops search terms shaped like keys or tokens before logging them.
 - **Upkeep:** `chores.json` (your switch and settings, if any) and `chore_state.json` (spacing and daily counts)
 
 Project graphs are keyed by the project root's final directory name, without a path hash, so two project roots with the same final name share one graph; use distinct names within a storage root. Project roots must be under your home directory. See [Data and Backup](https://github.com/mironmax/kg-memory/wiki/Data-and-Backup#file-locations).
@@ -209,6 +209,8 @@ echo "*.tmp" >> .gitignore
 git add -A && git commit -m "initial"
 ```
 That's it. The server detects the repository and commits changes itself every 15 minutes (`Auto-save YYYY-MM-DD HH:MM` commits, only when something actually changed), plus a final commit on graceful shutdown and on `kg stop`. Tune or disable with `KG_AUTOCOMMIT_INTERVAL` (seconds; `0` disables). `kg commit` forces an immediate commit.
+
+History keeps whatever it was given, so memory never takes a credential: a write whose gist, notes or touches hold an API key, token or private key is refused, with a request to record where the secret lives instead.
 
 **Borg**, a better fit for frequently changing data:
 ```bash

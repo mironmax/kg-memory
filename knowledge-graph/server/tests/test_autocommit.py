@@ -106,6 +106,35 @@ def test_untracked_only_commits():
         assert is_clean(repo)
 
 
+def test_logs_stay_out_of_git():
+    with tempfile.TemporaryDirectory() as td:
+        repo = make_git_repo(Path(td), "logs")
+        # A storage committed before the logs were excluded: they are tracked.
+        (repo / "recall.jsonl").write_text('{"terms": ["one"]}\n')
+        (repo / "useful.jsonl.prev").write_text("{}\n")
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "--quiet", "-m", "old")
+        (repo / "recall.jsonl").write_text('{"terms": ["one"]}\n{"terms": ["two"]}\n')
+        (repo / "chores.jsonl").write_text("{}\n")
+        (repo / "user.json").write_text('{"nodes": {"b": {}}}')
+
+        assert commit_storage(repo) is True
+        tracked = _git(repo, "ls-files").stdout.split()
+        assert "user.json" in tracked
+        assert not any(n.endswith((".jsonl", ".jsonl.prev")) for n in tracked), tracked
+        assert (repo / "recall.jsonl").read_text().count("\n") == 2  # left on disk
+        assert is_clean(repo)
+        # Later log writes alone never make a commit.
+        before = commit_count(repo)
+        with (repo / "recall.jsonl").open("a") as fh:
+            fh.write('{"terms": ["three"]}\n')
+        assert commit_storage(repo) is False
+        assert commit_count(repo) == before
+        # The exclude list is written once, not on every commit.
+        exclude = (repo / ".git" / "info" / "exclude").read_text().split()
+        assert exclude.count("/recall.jsonl") == 1
+
+
 def test_clean_tree_no_empty_commit():
     with tempfile.TemporaryDirectory() as td:
         repo = make_git_repo(Path(td), "clean")
@@ -189,6 +218,7 @@ def main():
         test_no_git_dir_is_noop,
         test_commit_when_dirty,
         test_untracked_only_commits,
+        test_logs_stay_out_of_git,
         test_clean_tree_no_empty_commit,
         test_interval_env_parsing,
         test_disabled_committer_never_commits,

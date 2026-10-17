@@ -49,6 +49,7 @@ from core.constants import (
     project_namespace,
     safe_project_path,
 )
+from core.credentials import term_is_secret_shaped
 from core.persistence import append_jsonl
 
 logger = logging.getLogger(__name__)
@@ -174,7 +175,8 @@ def _terms(prompt: str, cap: int = 24) -> list[str]:
     seen: set[str] = set()
     for term in _TERM_RE.findall(prompt.lower()):
         term = term.strip("./-")
-        if len(term) < PROMPT_RECALL_MIN_TERM_LEN or term in _STOPWORDS or term in seen:
+        if (len(term) < PROMPT_RECALL_MIN_TERM_LEN or term in _STOPWORDS or term in seen
+                or term_is_secret_shaped(term)):
             continue
         seen.add(term)
         out.append(term)
