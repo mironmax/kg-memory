@@ -139,11 +139,37 @@ def _claim_storage(root: Path) -> int | None:
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
         os.close(fd)
-        logger.error("KG PREFLIGHT: another memory server already uses %s — "
-                     "one storage, one server (stop it, or set KG_STORAGE_ROOT "
-                     "for a separate memory)", root)
+        port = int(os.getenv("KG_HTTP_PORT", "8765"))
+        logger.error("KG PREFLIGHT: %s",
+                     _storage_taken(root, port, port != 8765 and _default_server_answers()))
         sys.exit(1)
     return fd
+
+
+def _storage_taken(root: Path, port: int, default_answers: bool) -> str:
+    """Why this server cannot use the storage, with the likely remedy.
+
+    A port override set when the client launched outlives its removal from
+    the settings until the client restarts (a /clear keeps the environment),
+    so a server asked for another port while the default one is up is most
+    often that leftover, not a second memory anyone wanted.
+    """
+    taken = f"another memory server already uses {root}"
+    if default_answers:
+        return (f"{taken}, and one answers on the default port 8765 while KG_HTTP_PORT "
+                f"asks for {port}: the override is likely left over. Remove it and "
+                "restart the client app (a /clear keeps the old environment)")
+    return (f"{taken} — one storage, one server (stop it, or set KG_STORAGE_ROOT "
+            "for a separate memory)")
+
+
+def _default_server_answers() -> bool:
+    import urllib.request
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:8765/health", timeout=1) as resp:
+            return json.loads(resp.read()).get("status") == "ok"
+    except Exception:
+        return False
 
 
 def _start_error_file(port: int) -> Path:

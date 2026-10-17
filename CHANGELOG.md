@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Fixed
+- **A leftover port override is named as the cause.** A `KG_HTTP_PORT` set when the client app launched stays in force after it is removed from the settings, until the app restarts (a `/clear` keeps it). The server it starts then finds the storage taken by the regular server on 8765, and the session was told to run `kg doctor` and `kg start`, which change nothing. The error now says the override is likely left over and to restart the client app, and the hook passes on the remedy the error names.
+
 ## [0.15.1] - 2026-10-11
 
 The memory in the desktop apps, and the first steps toward Windows. A new guide explains what Claude Desktop's Code tab, Cowork and Chat and the ChatGPT app's Work and Chat modes each get from the memory and what to do in each; `kg setup` now connects the ChatGPT app even without a separate Codex CLI. On Windows, which is still not supported, `kg` now loads and a report-only CI job tracks the test suite there (30 of 45 test files pass).
