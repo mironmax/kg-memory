@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Fixed
+- **`kg doctor` reads Codex hook trust from Codex.** Codex trusts a plugin hook by a hash of the hook and of the plugin's files, so an update can void the trust while `config.toml` still names the hook; doctor looked only for the name and said trusted while Codex (or the ChatGPT app) asked again. Doctor now asks Codex's app server for each hook's status and names a modified one, falling back to the old check when Codex does not answer.
+
 ## [0.15.1] - 2026-10-11
 
 The memory in the desktop apps, and the first steps toward Windows. A new guide explains what Claude Desktop's Code tab, Cowork and Chat and the ChatGPT app's Work and Chat modes each get from the memory and what to do in each; `kg setup` now connects the ChatGPT app even without a separate Codex CLI. On Windows, which is still not supported, `kg` now loads and a report-only CI job tracks the test suite there (30 of 45 test files pass).
