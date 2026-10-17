@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Security
+The storage folder is usually a git repository the server commits on its own, so whatever reaches it stays in history. Three paths could carry a secret there; all three are closed. Commits made before this release still hold what they held: if a key reached them, rotate it.
+
+- **The logs stay out of git.** `recall.jsonl`, `useful.jsonl` and `chores.jsonl` were committed with the graphs, and `recall.jsonl` keeps search terms cut from each prompt, so a key typed into a prompt was committed as one term. The server and `kg commit` now list the logs in `.git/info/exclude` and untrack them once; the files stay on disk. Recall also drops terms shaped like keys or hashes before searching or logging. If you sync the storage between machines through git, update every machine, or an older one keeps committing the logs.
+- **Fetched URLs are counted without their query.** The capture counters (`projects/<slug>/tool_events.json`, committed) kept each fetched URL whole, and the capture nudge offered it as a touch, so a signed or keyed URL could reach both. They now keep scheme, host and path only.
+- **Memory refuses credentials.** `kg_put_node` and `kg_put_edge` refuse a write whose text holds an API key or token of a common provider, a private key or a JSON web token. The reply names the field and the kind, never the value, and asks for the write without it.
+- **`kg doctor` finds credentials already stored.** It names each node or edge that holds one and each commit that added one, never the values, with what to do: rewrite the node without the value, rotate the key, and purge the history if you want it gone. The first run reads the whole history (seconds on a long one); later runs read only new commits.
+
 ## [0.15.1] - 2026-10-11
 
 The memory in the desktop apps, and the first steps toward Windows. A new guide explains what Claude Desktop's Code tab, Cowork and Chat and the ChatGPT app's Work and Chat modes each get from the memory and what to do in each; `kg setup` now connects the ChatGPT app even without a separate Codex CLI. On Windows, which is still not supported, `kg` now loads and a report-only CI job tracks the test suite there (30 of 45 test files pass).

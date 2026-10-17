@@ -45,6 +45,7 @@ from core.search import (
     _FIELD_W_ID, _FIELD_W_GIST, _FIELD_W_REST, _stem, search_terms,
     rank_nodes, connection_paths,
 )
+from core.credentials import refuse_credentials
 from core.exceptions import NodeConflictError
 from core import recurrence
 from core.constants import (
@@ -721,6 +722,7 @@ class MultiProjectGraphStore:
             # before storing so corruption never lands and notes survive as a
             # structured field. No-op for well-formed input.
             gist, notes, touches = heal_node_fields(gist, notes, touches)
+            refuse_credentials(gist=gist, notes=notes, touches=touches)
 
             # Create or update node. The id length rule applies only to a
             # CREATE: an update, promotion or rewire of a node named before the
@@ -1017,6 +1019,7 @@ class MultiProjectGraphStore:
         validate_edge_ref(from_ref)
         validate_edge_ref(to_ref)
         validate_rel(rel)
+        refuse_credentials(notes=notes)
         credit = None
         with self.lock:
             level, graph_key = self._resolve_graph_key(level, session_id, project_path)

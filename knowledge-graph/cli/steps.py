@@ -12,6 +12,7 @@ import platform
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -774,6 +775,103 @@ class Storage(Step):
         return OFF, f"{root}, no version history (README: Versioned history and external backups)"
 
 
+def credential_kind():
+    """The server's credential_kind, loaded from its file: kg imports no server code."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "kg_credentials", kg.ROOT / "server" / "core" / "credentials.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.credential_kind
+
+
+def credentials_in_graphs(root: Path, kind_of) -> list[str]:
+    """'<graph>: <node or edge> (<kind>)' for every credential in the live graphs."""
+    found = []
+    graphs = [("user", root / "user.json"), ("maintain", root / "maintain.json")]
+    graphs += [(f"project {p.parent.name}", p) for p in sorted(root.glob("projects/*/graph.json"))]
+    for label, path in graphs:
+        data = load_json(path)
+        for node_id, node in (data.get("nodes") or {}).items():
+            texts = [node.get("gist") or ""] + list(node.get("notes") or []) + list(node.get("touches") or [])
+            kind = next(filter(None, (kind_of(str(t)) for t in texts)), None)
+            if kind:
+                found.append(f"{label}: {node_id} ({kind})")
+        for edge in (data.get("edges") or {}).values():
+            kind = next(filter(None, (kind_of(str(t)) for t in edge.get("notes") or [])), None)
+            if kind:
+                found.append(f"{label}: edge {edge.get('from')} -> {edge.get('to')} ({kind})")
+    return found
+
+
+def credentials_in_history(root: Path, kind_of) -> list[str]:
+    """Short hashes of the commits that added a credential, newest first.
+
+    A long history takes seconds to read, so the answer is kept in the state
+    folder by HEAD and later runs read only the commits added since.
+    """
+    git = ["git", "-C", str(root)]
+    head = subprocess.run(git + ["rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+    if not head:
+        return []
+    cache_path = kg.STATE_DIR / "credential_scan.json"
+    cache = load_json(cache_path)
+    known, since = [], None
+    if cache.get("root") == str(root) and cache.get("head"):
+        if cache["head"] == head:
+            return cache.get("commits", [])
+        if subprocess.run(git + ["merge-base", "--is-ancestor", cache["head"], head],
+                          capture_output=True).returncode == 0:
+            known, since = cache.get("commits", []), cache["head"]
+    if since is None:
+        print("Reading the memory's history for credentials once; later runs read only new commits...",
+              file=sys.stderr)
+    log = subprocess.Popen(git + ["log", "-p", "--no-color", "--no-renames", "--format=@@commit %h",
+                                  f"{since}..{head}" if since else head],
+                           stdout=subprocess.PIPE, text=True, errors="replace")
+    found, commit = [], None
+    for line in log.stdout:
+        if line.startswith("@@commit "):
+            commit = line.split()[1]
+        elif (line.startswith("+") and not line.startswith("+++")
+              and (not found or found[-1] != commit) and kind_of(line)):
+            found.append(commit)
+    if log.wait() != 0:
+        return known
+    commits = found + known
+    kg.STATE_DIR.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(json.dumps({"root": str(root), "head": head, "commits": commits}))
+    return commits
+
+
+class Credentials(Step):
+    key, group, title = "credentials", "Memory", "credentials in memory"
+
+    def check(self, ctx):
+        root = kg.STORAGE_ROOT
+        if not root.is_dir():
+            return OFF, "no memory yet"
+        kind_of = credential_kind()
+        places = credentials_in_graphs(root, kind_of)
+        commits = credentials_in_history(root, kind_of) if (root / ".git").is_dir() else []
+        if commits:
+            shown = " ".join(commits[:10]) + (" ..." if len(commits) > 10 else "")
+            history = (f"{len(commits)} commit(s) in {root} added a credential ({shown}); history "
+                       "keeps it after a fix. To purge: kg stop, git filter-repo --replace-text, kg start.")
+        if not places:
+            if commits:
+                return OK, f"no credentials in memory. {history} Rotate those keys if not yet done."
+            return OK, "no credentials in memory"
+        lines = [f"{len(places)} credential(s) in memory, which every later session reads. "
+                 "Ask your agent to rewrite each without the value (kg_put_node), then rotate the key:"]
+        lines += [f"      {p}" for p in places[:20]]
+        if len(places) > 20:
+            lines.append(f"      ...and {len(places) - 20} more")
+        if commits:
+            lines.append("    " + history)
+        return MANUAL, "\n".join(lines)
+
+
 STEPS = [Command(), LegacyCommands(), Service(), Server(),
          ClaudePlugin(), ClaudeAutoUpdate(), ClaudePermissions(), ClaudeAutoMemory(), ClaudeGauge(), ClaudeDesktop(),
-         CodexPlugin(), CodexHooks(), AgyPlugin(), AgyPermissions(), Upkeep(), Storage()]
+         CodexPlugin(), CodexHooks(), AgyPlugin(), AgyPermissions(), Upkeep(), Storage(), Credentials()]
