@@ -90,9 +90,9 @@ def main():
         shaped = _terms("token AIzaSyB1c2D3e4F5g6H7i8J9k0LmNoPqRsTuVwX hash "
                         "b13ab5de43834a0b2f34d97bd0d4d4b1f00c1a2e")
         check("drops secret-shaped terms", shaped == ["token", "hash"], shaped)
-        kept = _terms("read devdocs/ops/2026-10-15-watcher-build-sdk-letter.md and test_v0924.py at 158d17b")
+        kept = _terms("read docs/notes/2026-10-15-release-checklist.md and test_v0924.py at 158d17b")
         check("keeps paths, dated files, short hashes",
-              {"devdocs/ops/2026-10-15-watcher-build-sdk-letter.md", "test_v0924.py", "158d17b"} <= set(kept),
+              {"docs/notes/2026-10-15-release-checklist.md", "test_v0924.py", "158d17b"} <= set(kept),
               kept)
 
         # --- 2. prompt recall ------------------------------------------------

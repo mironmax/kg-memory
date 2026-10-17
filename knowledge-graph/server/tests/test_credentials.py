@@ -72,7 +72,7 @@ def test_recall_terms():
     print("2. recall terms")
     check("drops a lowercased key", term_is_secret_shaped(FAKE["Google API key"].lower()))
     check("drops a full sha", term_is_secret_shaped("0123456789abcdef0123456789abcdef01234567"))
-    for term in ("devdocs/ops/2026-10-15-watcher-build-sdk-letter.md", "test_v0924.py", "158d17b",
+    for term in ("docs/notes/2026-10-15-release-checklist.md", "test_v0924.py", "158d17b",
                  "knowledge-graph/server/mcp_http/ambient.py"):
         check(f"keeps {term}", not term_is_secret_shaped(term))
 
