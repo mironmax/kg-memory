@@ -50,7 +50,7 @@ if ! healthy; then
     if [ -f "$BREADCRUMB" ]; then
         CAUSE=$(grep -m1 '^cause: ' "$BREADCRUMB" 2>/dev/null | sed 's/^cause: //')
         WHEN=$(grep -m1 '^when: ' "$BREADCRUMB" 2>/dev/null | sed 's/^when: //')
-        echo "KG memory server is DOWN and its last start attempt FAILED (${WHEN:-unknown time}): ${CAUSE:-cause not recorded}. It will fail the same way until fixed, so do not tell the user to wait or retry. Report the cause and offer the remedy: run \`kg doctor\`, then \`kg start\`. The kg_* tools are offline for this session; proceed without memory."
+        echo "KG memory server is DOWN and its last start attempt FAILED (${WHEN:-unknown time}): ${CAUSE:-cause not recorded}. It will fail the same way until fixed, so do not tell the user to wait or retry. Report the cause and the remedy it names; if it names none, offer: run \`kg doctor\`, then \`kg start\`. The kg_* tools are offline for this session; proceed without memory."
         exit 0
     fi
     START_OUT=$("$KG_BIN" start 2>&1)
