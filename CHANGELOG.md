@@ -2,7 +2,9 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased]
+## [0.16.0] - 2026-10-18
+
+Memory for callers outside the usual session. A git worktree now shares its main checkout's memory instead of starting empty; `KG_HOOKS=off` keeps the memory out of a scripted run; and a program that composes its own context can open a session by REST, naming itself and what it already showed the model.
 
 ### Added
 - **`KG_HOOKS=off` silences the plugin's hooks for one run.** A scripted or headless run that loads the plugin but wants no memory (no preload, recall, capture nudges or upkeep dispatch) sets it in its environment, in every harness. The maintenance runner now sets it too; `KG_CHORE=1`, which it used before, still works.
