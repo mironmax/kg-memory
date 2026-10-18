@@ -112,6 +112,15 @@ def main():
           mss._mcp_requirement())
     check("preflight is silent on a healthy surface",
           mss._preflight_mcp_surface() is None)
+    root = Path("/tmp/kg-storage")
+    stale = mss._storage_taken(root, 8777, default_answers=True)
+    check("a taken storage with the default server up names the port override",
+          "KG_HTTP_PORT asks for 8777" in stale and "restart the client app" in stale, stale)
+    plain = mss._storage_taken(root, 8777, default_answers=False)
+    check("otherwise it names the storage rule",
+          "one storage, one server" in plain and "KG_HTTP_PORT" not in plain, plain)
+    check("both keep the words kg and its tests look for",
+          all(m.startswith("another memory server already uses") for m in (stale, plain)))
 
     print(f"\n{_PASS} passed, {_FAIL} failed")
     return 1 if _FAIL else 0

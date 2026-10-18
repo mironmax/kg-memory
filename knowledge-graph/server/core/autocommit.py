@@ -13,6 +13,7 @@ Behavior:
     tick, so a later `git init` is picked up without a restart).
   - Commits only when the working tree actually has changes (modified or
     untracked) — never an empty commit.
+  - The observation logs (UNTRACKED_LOGS) never enter a commit.
   - Commit message matches `kg commit` and `kg stop`:
     "Auto-save YYYY-MM-DD HH:MM".
   - git failures are logged (WARNING) and never propagate — the memory
@@ -28,7 +29,19 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
+from .constants import CHORE_LOG_NAME, RECALL_LOG_NAME, USEFUL_LOG_NAME
+
 logger = logging.getLogger(__name__)
+
+# Observation logs written into the storage root, each with its rolled .prev.
+# They are evidence, not memory, and recall.jsonl holds terms taken from
+# prompts, so a pasted secret would reach history: they stay out of git.
+# Same list as cli/kg.py UNTRACKED_LOGS.
+UNTRACKED_LOGS = tuple(
+    name + suffix
+    for name in (RECALL_LOG_NAME, USEFUL_LOG_NAME, CHORE_LOG_NAME)
+    for suffix in ("", ".prev")
+)
 
 # Default commit cadence in seconds (15 minutes).
 DEFAULT_AUTOCOMMIT_INTERVAL = 900
@@ -69,6 +82,28 @@ def _run_git(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
     )
 
 
+def keep_logs_out_of_git(storage_root: Path) -> None:
+    """List the logs in .git/info/exclude and untrack any that are tracked.
+
+    info/exclude rather than .gitignore: it is local to this clone and never
+    edits a file the user commits. Untracking leaves the files on disk; what
+    earlier commits hold stays in history.
+    """
+    exclude = storage_root / ".git" / "info" / "exclude"
+    text = exclude.read_text() if exclude.exists() else ""
+    missing = [f"/{n}" for n in UNTRACKED_LOGS if f"/{n}" not in text.split()]
+    if missing:
+        exclude.parent.mkdir(exist_ok=True)
+        lead = "\n" if text and not text.endswith("\n") else ""
+        with exclude.open("a") as fh:
+            fh.write(lead + "\n".join(missing) + "\n")
+    tracked = _run_git(["ls-files", "--", *UNTRACKED_LOGS], storage_root).stdout.split()
+    if tracked:
+        rm = _run_git(["rm", "--cached", "--quiet", "--", *tracked], storage_root)
+        if rm.returncode != 0:
+            logger.warning(f"Auto-commit: could not untrack {tracked}: {rm.stderr.strip()}")
+
+
 def commit_storage(storage_root: Path) -> bool:
     """Commit pending changes in storage_root, if any.
 
@@ -82,6 +117,7 @@ def commit_storage(storage_root: Path) -> bool:
         if not (storage_root / ".git").is_dir():
             return False
 
+        keep_logs_out_of_git(storage_root)
         status = _run_git(["status", "--porcelain"], storage_root)
         if status.returncode != 0:
             logger.warning(

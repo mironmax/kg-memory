@@ -30,9 +30,11 @@ server. A hook never replaces a running server: if an older one is running,
 the session start says it lacks the adapter. Run `kg update`, or `kg restart`
 if kg is already current (see [Server management](README.md#server-management)).
 
-The CLI installs plugins from a local directory only: it refuses git URLs,
-and third-party marketplaces cannot be registered. To install by hand, use a
-clean checkout (a working tree with venvs or caches copies them too):
+Since agy 1.3.2 the CLI also installs from its official marketplace
+(`<name>@antigravity-plugins-official`, or `/plugin` inside the CLI). This
+plugin is not listed there, and git URLs are refused, so it installs from a
+local directory. To install by hand, use a clean checkout (a working tree
+with venvs or caches copies them too):
 
 ```bash
 git clone https://github.com/mironmax/kg-memory
@@ -41,7 +43,8 @@ agy -p /hooks
 ```
 
 `/hooks` must list `SessionStart`, `PreInvocation` and `PostToolUse`. Then
-start a new conversation. Use `plugin install`, not `plugin import`: import
+start a new conversation. Inside the CLI, `/plugin` → **Install from local
+directory** does the same. Use `plugin install`, not `plugin import`: import
 converts the Claude Code files and drops every hook and the MCP entry.
 
 The install is a copy in `~/.gemini/config/plugins/knowledge-graph/`. The
@@ -90,6 +93,12 @@ agy soft-denies, so an Antigravity run never deletes. The gate is a live
 only skip the five-hour gate. The run is a tool-less `kg-maintainer` agent
 in `~/.knowledge-graph/agy-runner/`, refused unless `agy -p /agents` lists it.
 
+Known limit: a chore run has its hooks off, so it gets no queued delivery
+and every reply above 3,500 bytes is refused, with a hint to install the
+plugin that does not apply there. Chores on small nodes complete; a chore
+cannot read a larger node or search result and works on without it.
+Prefer the Claude or Codex runner until this is fixed.
+
 ## How memory reaches the model
 
 The CLI cuts MCP results short: eager tools deliver about 10 KB whole, but
@@ -122,8 +131,10 @@ is refused. Claude Code and Codex get the same reset from their
 `SessionStart` hook with `source: compact`.
 
 Conversation ids from MCP `_meta` and from hook payloads select the same KG
-session; another conversation's session id is refused. The first workspace
-path is the project; without one the session is user-only.
+session; another conversation's session id is refused. `/fork` and `/clear`
+start a new conversation id, so each gets its own session and preload;
+`--conversation` resumes the old one. The first workspace path is the
+project; without one the session is user-only.
 
 ## Status
 
@@ -140,11 +151,16 @@ Verified:
   smoke below, 7 checks).
 - Checkpoint detection against the signed-in transcript whose summary lost
   27 of 28 preloaded memories.
+- The signed-in checklist below on `agy 1.3.3`, except compaction: preload
+  and full read, a large batch in three parts, file recall in a nested
+  directory, two conversations and a server restart during a pending read,
+  `--conversation`, `/fork` and `/clear`, web tools and a denied tool.
+- A real maintenance run on `agy 1.3.3` with the kg tools granted, within
+  the limit above.
 
-Not yet verified in a signed-in session: compaction after this fix,
-`--conversation` resume, `/fork`, `/clear`, a restart during a pending read,
-quota exhaustion, and a real maintenance run with the kg tools granted (the
-runner is verified with a mock model only).
+Not yet verified in a signed-in session: compaction after this fix (1.3.3
+has no manual `/compact`, and automatic compaction needs a context near the
+model's window), and quota exhaustion.
 
 ## Development and verification
 
@@ -209,7 +225,8 @@ Signed-in checklist before calling support stable:
    restart the server during a pending read.
 5. Resume with `--conversation`, `/fork`, `/clear`, and a compaction:
    record the hook payloads and check that the preload returns after the
-   checkpoint.
+   checkpoint. Without a manual `/compact`, compaction needs a long
+   conversation or a model with a small context window.
 6. Web tools and a denied tool: pending context survives the next prompt,
    and the CLI log shows no rejected hook reply.
 

@@ -261,6 +261,22 @@ class DoctorTests(unittest.TestCase):
         self.assertIn("not trusted: session_start, user_prompt_submit, post_tool_use", out)
         self.assertIn("✗ plugin not installed", out)  # Antigravity
 
+    def test_codex_trust_comes_from_codex_not_the_config(self):
+        # config.toml still names every hook, but Codex reports one as modified,
+        # as it does after an update changes the plugin's files.
+        box = Sandbox(self)
+        keys = [f"knowledge-graph@maxim-plugins:hooks/hooks.json:{h}:0:0"
+                for h in ("session_start", "user_prompt_submit", "post_tool_use")]
+        reply = json.dumps({"id": 1, "result": {"data": [{"hooks": [
+            {"key": key, "trustStatus": "modified" if i == 0 else "trusted"} for i, key in enumerate(keys)]}]}})
+        box.write(".local/bin/codex", "#!/bin/sh\nwhile read -r line; do case \"$line\" in\n"
+                  f"  *'\"id\": 1'*) echo '{reply}' ;;\nesac; done\n").chmod(0o755)
+        (box.home / ".codex/plugins/cache/maxim-plugins/knowledge-graph/0.0.1").mkdir(parents=True)
+        box.write(".codex/config.toml", "".join(f'[hooks.state."{key}"]\n' for key in keys))
+        out = box.kg("doctor").stdout
+        self.assertIn("not trusted: session_start (modified)", out)
+        self.assertNotIn("user_prompt_submit", out)
+
     def test_auto_mode_is_a_suggestion_not_a_problem(self):
         box = Sandbox(self)
         fake_binaries(box, "claude")
@@ -372,6 +388,42 @@ exit 0
         self.assertIn("connected through kg mcp", box.kg("doctor").stdout)
         box.kg("uninstall", "--yes")
         self.assertNotIn("knowledge-graph", json.loads(config.read_text())["mcpServers"])
+
+
+class CredentialDoctorTests(unittest.TestCase):
+    def test_doctor_names_where_a_credential_is_never_its_value(self):
+        box = Sandbox(self)
+        root = box.home / ".knowledge-graph"
+        token = "gh" + "p_" + "aB3dE5fG7hJ9kL2mN4pQ6rS8tU0vW1xYZz9q"   # assembled: no literal key in the repo
+
+        def graph(note):
+            box.write(".knowledge-graph/user.json", json.dumps(
+                {"nodes": {"deploy-access": {"id": "deploy-access", "gist": "how deploys get access",
+                                             "notes": [note]}}, "edges": {}}))
+
+        def commit(message):
+            for args in (["add", "-A"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", message]):
+                subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True)
+            return subprocess.run(["git", "-C", str(root), "rev-parse", "--short", "HEAD"],
+                                  capture_output=True, text=True).stdout.strip()
+
+        graph(f"pushes with {token}")
+        subprocess.run(["git", "init", "-q", str(root)], check=True)
+        added = commit("add")
+
+        out = box.kg("doctor").stdout
+        self.assertIn("1 credential(s) in memory", out)
+        self.assertIn("user: deploy-access (GitHub token)", out)
+        self.assertIn(added, out)
+        self.assertNotIn(token, out)
+
+        graph("the token is in the CI secret DEPLOY_TOKEN")
+        commit("fix")
+        out = box.kg("doctor").stdout
+        self.assertIn("✓ no credentials in memory. 1 commit(s)", out)
+        self.assertIn(added, out)
+        cache = json.loads((box.state / "credential_scan.json").read_text())
+        self.assertEqual(cache["commits"], [added])   # the second run read only the new commit
 
 
 class UninstallAndUpdateTests(unittest.TestCase):

@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here.
 
+## [0.15.2] - 2026-10-18
+
+Secrets stay out of the storage history: the logs, fetched URLs and memory writes no longer carry a key into the git repository the storage usually is, and `kg doctor` names any credential already stored. Also fixed: a leftover `KG_HTTP_PORT` is named as the cause when the storage is taken, and doctor reads Codex hook trust from Codex itself. The Antigravity guide is current with agy 1.3.3.
+
+### Security
+The storage folder is usually a git repository the server commits on its own, so whatever reaches it stays in history. Three paths could carry a secret there; all three are closed. Commits made before this release still hold what they held: if a key reached them, rotate it.
+
+- **The logs stay out of git.** `recall.jsonl`, `useful.jsonl` and `chores.jsonl` were committed with the graphs, and `recall.jsonl` keeps search terms cut from each prompt, so a key typed into a prompt was committed as one term. The server and `kg commit` now list the logs in `.git/info/exclude` and untrack them once; the files stay on disk. Recall also drops terms shaped like keys or hashes before searching or logging. If you sync the storage between machines through git, update every machine, or an older one keeps committing the logs.
+- **Fetched URLs are counted without their query.** The capture counters (`projects/<slug>/tool_events.json`, committed) kept each fetched URL whole, and the capture nudge offered it as a touch, so a signed or keyed URL could reach both. They now keep scheme, host and path only.
+- **Memory refuses credentials.** `kg_put_node` and `kg_put_edge` refuse a write whose text holds an API key or token of a common provider, a private key or a JSON web token. The reply names the field and the kind, never the value, and asks for the write without it.
+- **`kg doctor` finds credentials already stored.** It names each node or edge that holds one and each commit that added one, never the values, with what to do: rewrite the node without the value, rotate the key, and purge the history if you want it gone. The first run reads the whole history (seconds on a long one); later runs read only new commits.
+
+### Fixed
+- **A leftover port override is named as the cause.** A `KG_HTTP_PORT` set when the client app launched stays in force after it is removed from the settings, until the app restarts (a `/clear` keeps it). The server it starts then finds the storage taken by the regular server on 8765, and the session was told to run `kg doctor` and `kg start`, which change nothing. The error now says the override is likely left over and to restart the client app, and the hook passes on the remedy the error names.
+- **`kg doctor` reads Codex hook trust from Codex.** Codex trusts a plugin hook by a hash of the hook and of the plugin's files, so an update can void the trust while `config.toml` still names the hook; doctor looked only for the name and said trusted while Codex (or the ChatGPT app) asked again. Doctor now asks Codex's app server for each hook's status and names a modified one, falling back to the old check when Codex does not answer.
+
+### Docs
+- **The Antigravity guide is current with agy 1.3.3.** It names the official marketplace added in 1.3.2 (this plugin installs from a local directory, now also through `/plugin`), records the signed-in checks passed on 1.3.3 (all but compaction, which 1.3.3 cannot trigger by hand), says how `/fork`, `/clear` and `--conversation` map to memory sessions, and states the maintenance runner's limit: a chore cannot read a reply above 3,500 bytes.
+
 ## [0.15.1] - 2026-10-11
 
 The memory in the desktop apps, and the first steps toward Windows. A new guide explains what Claude Desktop's Code tab, Cowork and Chat and the ChatGPT app's Work and Chat modes each get from the memory and what to do in each; `kg setup` now connects the ChatGPT app even without a separate Codex CLI. On Windows, which is still not supported, `kg` now loads and a report-only CI job tracks the test suite there (30 of 45 test files pass).

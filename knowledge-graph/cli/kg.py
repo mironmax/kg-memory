@@ -40,6 +40,9 @@ PID_FILE = STATE_DIR / "server.pid"
 # outcome; this file is how the next session learns why a start failed.
 BREADCRUMB = STATE_DIR / "last_start_error"
 STORAGE_ROOT = Path(os.environ.get("KG_STORAGE_ROOT") or Path.home() / ".knowledge-graph")
+# Same list as server/core/autocommit.py UNTRACKED_LOGS.
+UNTRACKED_LOGS = tuple(name + suffix for name in ("recall.jsonl", "useful.jsonl", "chores.jsonl")
+                       for suffix in ("", ".prev"))
 # Matches legacy servers started from a plugin cache too, so stop/restart can
 # take over from them.
 SERVER_MARK = "mcp_streamable_server"
@@ -282,6 +285,19 @@ def commit_storage() -> None:
     if not (STORAGE_ROOT / ".git").is_dir():
         return
     git = ["git", "-C", str(STORAGE_ROOT)]
+    # The server's keep_logs_out_of_git, repeated here because kg does not
+    # import the server: the observation logs never enter a commit.
+    exclude = STORAGE_ROOT / ".git" / "info" / "exclude"
+    text = exclude.read_text() if exclude.exists() else ""
+    missing = [f"/{n}" for n in UNTRACKED_LOGS if f"/{n}" not in text.split()]
+    if missing:
+        exclude.parent.mkdir(exist_ok=True)
+        with exclude.open("a") as fh:
+            fh.write(("\n" if text and not text.endswith("\n") else "") + "\n".join(missing) + "\n")
+    tracked = subprocess.run(git + ["ls-files", "--", *UNTRACKED_LOGS],
+                             capture_output=True, text=True).stdout.split()
+    if tracked:
+        subprocess.run(git + ["rm", "--cached", "--quiet", "--", *tracked], capture_output=True)
     if not subprocess.run(git + ["status", "--porcelain"], capture_output=True, text=True).stdout:
         return
     subprocess.run(git + ["add", "-A"], capture_output=True)
