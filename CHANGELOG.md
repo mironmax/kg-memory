@@ -2,7 +2,9 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased]
+## [0.15.2] - 2026-10-18
+
+Secrets stay out of the storage history: the logs, fetched URLs and memory writes no longer carry a key into the git repository the storage usually is, and `kg doctor` names any credential already stored. Also fixed: a leftover `KG_HTTP_PORT` is named as the cause when the storage is taken, and doctor reads Codex hook trust from Codex itself. The Antigravity guide is current with agy 1.3.3.
 
 ### Security
 The storage folder is usually a git repository the server commits on its own, so whatever reaches it stays in history. Three paths could carry a secret there; all three are closed. Commits made before this release still hold what they held: if a key reached them, rotate it.
