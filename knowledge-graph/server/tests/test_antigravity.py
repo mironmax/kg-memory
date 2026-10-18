@@ -24,6 +24,7 @@ os.environ["KG_STORAGE_ROOT"] = _STORAGE.name
 
 import httpx2 as httpx
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+from core.constants import resolve_project_root
 from mcp_http import antigravity, chore_dispatch, file_recall, harness
 from mcp_http.delivery import DeferredView, HOOK_BYTES, QUEUE_BYTES
 from mcp_http.rest import create_rest_api
@@ -415,7 +416,8 @@ class AntigravityTests(unittest.IsolatedAsyncioTestCase):
                     break
                 await asyncio.sleep(0.01)
         self.assertEqual(dispatch.call_count, 1)
-        self.assertEqual(dispatch.call_args.args[2], str(self.root))
+        # The folder sits in the checkout: in a linked worktree it is the main one's.
+        self.assertEqual(dispatch.call_args.args[2], resolve_project_root(str(self.root)))
 
     async def test_missing_workspace_is_user_only_and_ide_events_are_ignored(self):
         await self.hook("SessionStart", cid="folderless", workspacePaths=[])

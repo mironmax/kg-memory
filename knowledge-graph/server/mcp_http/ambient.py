@@ -48,8 +48,10 @@ from core.constants import (
     path_within,
     project_graph_path,
     project_namespace,
+    resolve_project_root,
     safe_project_path,
 )
+from core.checkout import main_checkout_path
 from core.credentials import term_is_secret_shaped
 from core.persistence import append_jsonl
 
@@ -528,11 +530,16 @@ def _extract_target(tool: str, tool_input: dict) -> tuple[str, str] | None:
 
 
 def file_key(target: str, project_path: str) -> str:
-    """Project-relative path when inside the project, else the real path."""
+    """Project-relative path when inside the project, else the real path.
+    A file in a linked worktree of the project counts as the same file in
+    its main checkout."""
     real = os.path.realpath(os.path.expanduser(target))
     root = os.path.realpath(project_path)
     if path_within(real, root):
         return os.path.relpath(real, root)
+    checkout = main_checkout_path(real)
+    if checkout != real and path_within(checkout, root):
+        return os.path.relpath(checkout, root)
     return real
 
 
@@ -548,7 +555,7 @@ def _target_covered(store, project_path: str, needle: str) -> bool:
     """Does any node in the user or project graph already reference this?"""
     needle_l = needle.lower()
     try:
-        keys = ["user", project_namespace(str(safe_project_path(project_path)))]
+        keys = ["user", project_namespace(resolve_project_root(project_path))]
     except ValueError:
         keys = ["user"]
     with store.lock:

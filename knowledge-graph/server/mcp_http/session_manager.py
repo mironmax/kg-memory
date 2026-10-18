@@ -11,7 +11,7 @@ import uuid
 from functools import wraps
 from pathlib import Path
 from core.constants import (SESSION_ID_LENGTH, SESSION_TTL_SECONDS, memory_project_root, path_within,
-                            safe_project_path, sessions_file_path)
+                            resolve_project_root, sessions_file_path)
 
 logger = logging.getLogger(__name__)
 
@@ -538,7 +538,7 @@ class HTTPSessionManager:
         hook that calls this runs inside the newest session by construction.
         """
         try:
-            resolved = str(safe_project_path(project_path))
+            resolved = resolve_project_root(project_path)
         except ValueError:
             return None
         best = None

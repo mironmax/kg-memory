@@ -36,7 +36,7 @@ from core import (
     get_storage_root,
     project_graph_path,
     user_graph_path,
-    safe_project_path,
+    resolve_project_root,
     project_namespace,
     project_slug,
     is_project_namespace,
@@ -303,7 +303,7 @@ class MultiProjectGraphStore:
         delete all accept the same addressing.
         """
         if level == "project" and project_path:
-            project_root = str(safe_project_path(project_path))
+            project_root = resolve_project_root(project_path)
             self._ensure_project_loaded(project_root)
             return "project", project_namespace(project_root)
 
@@ -448,7 +448,7 @@ class MultiProjectGraphStore:
 
             elif project_path:
                 # Direct project path provided (e.g., from visual editor)
-                project_root = str(safe_project_path(project_path))
+                project_root = resolve_project_root(project_path)
 
             # Load project graph if we have a path
             if project_root:

@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Changed
+- **A git worktree shares its main checkout's memory.** A session in a linked worktree (`git worktree add`, `claude -w`, an agent's isolated worktree) used to get a new, empty project named after the worktree folder. It now works in the main checkout's project: the same preload, recall and writes, and file recall matches a worktree's files to the touches written for the checkout. Submodules and worktrees of a bare repository stay their own projects. Graphs a worktree already created are left in place.
+
 ## [0.15.2] - 2026-10-18
 
 Secrets stay out of the storage history: the logs, fetched URLs and memory writes no longer carry a key into the git repository the storage usually is, and `kg doctor` names any credential already stored. Also fixed: a leftover `KG_HTTP_PORT` is named as the cause when the storage is taken, and doctor reads Codex hook trust from Codex itself. The Antigravity guide is current with agy 1.3.3.
