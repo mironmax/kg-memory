@@ -40,7 +40,7 @@ You don't operate the memory; the agent does. You mostly notice it in the answer
 
 **Measured, within limits.** Every prompt and file recall decision and every credit is logged locally, and a replay evaluator scores ranking changes against that record. Recent scoring and budget changes were replayed on copies of real memory graphs before release. There is no published measurement yet of how much the memory improves an agent's results: the public evidence so far is daily use and these logs, not a headline number.
 
-**Still moving.** It is pre-1.0: minor releases still retune scoring, budgets and the instructions the agent follows, each recorded in the [changelog](CHANGELOG.md). Antigravity CLI support is experimental. Windows is not supported. The background service is set up on Linux (systemd); on macOS the agent's session start launches the server on demand. Two limits to know: projects are told apart by their folder name, so two projects in folders with the same name share one memory; and project folders must be inside your home directory.
+**Still moving.** It is pre-1.0: minor releases still retune scoring, budgets and the instructions the agent follows, each recorded in the [changelog](CHANGELOG.md). Antigravity CLI support is experimental. Windows is not supported. The background service is set up on Linux (systemd); on macOS the agent's session start launches the server on demand. Two limits to know: projects are told apart by their folder name, so two projects in folders with the same name share one memory (a git worktree counts as its main checkout); and project folders must be inside your home directory.
 
 ### What it costs
 

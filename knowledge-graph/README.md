@@ -153,6 +153,7 @@ The server reads a few tunables from environment variables. Where to set them de
 | `KG_ORPHAN_GRACE_DAYS` | `365` | Days an orphaned node may go unrecalled before it is permanently deleted |
 | `KG_CHORES` | unset | `1` or `0` overrides `"enabled"` in `chores.json` (background upkeep) |
 | `KG_BUDGET_NOTICES` | `1` | `0` turns budget notices off (or `"budget_notices": false` in `chores.json`) |
+| `KG_HOOKS` | unset | `off` in a run's environment silences every plugin hook in that run: no preload, no recall, no capture nudges, no upkeep dispatch. For scripted or headless runs that load the plugin but want no memory |
 | `KG_LOG_LEVEL` | `INFO` | Server log level |
 | `EDITOR_PORT` | `8766` | Visual editor port |
 

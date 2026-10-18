@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here.
 
+## [0.16.0] - 2026-10-18
+
+Memory for callers outside the usual session. A git worktree now shares its main checkout's memory instead of starting empty; `KG_HOOKS=off` keeps the memory out of a scripted run; and a program that composes its own context can open a session by REST, naming itself and what it already showed the model.
+
+### Added
+- **`KG_HOOKS=off` silences the plugin's hooks for one run.** A scripted or headless run that loads the plugin but wants no memory (no preload, recall, capture nudges or upkeep dispatch) sets it in its environment, in every harness. The maintenance runner now sets it too; `KG_CHORE=1`, which it used before, still works.
+- **A program that composes its own context can register a session by REST.** `POST /api/sessions/register` takes a JSON body with `project_path`, an `agent` name for the session, and `preloaded_ids`: the nodes the caller already put in front of the model. Those count as preloaded and seen, so `kg_read` and recall do not repeat them. The `project_path` query the visual editor sends still works.
+
+### Changed
+- **A git worktree shares its main checkout's memory.** A session in a linked worktree (`git worktree add`, `claude -w`, an agent's isolated worktree) used to get a new, empty project named after the worktree folder. It now works in the main checkout's project: the same preload, recall and writes, and file recall matches a worktree's files to the touches written for the checkout. Submodules and worktrees of a bare repository stay their own projects. Graphs a worktree already created are left in place.
+
 ## [0.15.2] - 2026-10-18
 
 Secrets stay out of the storage history: the logs, fetched URLs and memory writes no longer carry a key into the git repository the storage usually is, and `kg doctor` names any credential already stored. Also fixed: a leftover `KG_HTTP_PORT` is named as the cause when the storage is taken, and doctor reads Codex hook trust from Codex itself. The Antigravity guide is current with agy 1.3.3.

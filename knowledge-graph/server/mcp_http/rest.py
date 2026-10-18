@@ -18,9 +18,9 @@ import time
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
-from core.constants import project_namespace, safe_project_path
+from core.constants import project_namespace, resolve_project_root
 from core.exceptions import KGError, NodeNotFoundError, SessionNotFoundError
-from core.utils import GIST_SCAN_LIMIT
+from core.utils import GIST_SCAN_LIMIT, validate_node_id
 from .security import origin_allowed
 
 logger = logging.getLogger(__name__)
@@ -56,6 +56,16 @@ class NodeRenameRequest(BaseModel):
     project_path: str | None = None
 
 
+class SessionRegisterRequest(BaseModel):
+    project_path: str | None = None
+    # A module's own name for the session (persona, job kind).
+    agent: str | None = None
+    # Node ids the caller already put in front of the model (its own composed
+    # preload): recorded as a hook preload would be, so kg_read and recall
+    # do not repeat them.
+    preloaded_ids: list[str] | None = Field(default=None, max_length=2000)
+
+
 class ProgressSetRequest(BaseModel):
     task_id: str
     state: dict
@@ -89,9 +99,22 @@ def create_rest_api(store, session_manager, connection_manager, version: str) ->
             raise HTTPException(status_code=500, detail=str(e))
 
     @rest_api.post("/api/sessions/register")
-    async def rest_register_session(project_path: str | None = None):
-        """Register a new session. Used by visual editor."""
-        return session_manager.register(project_path)
+    async def rest_register_session(project_path: str | None = None,
+                                    body: SessionRegisterRequest | None = None):
+        """Register a new session: the visual editor (project_path query) and
+        callers that compose their own context (JSON body)."""
+        body = body or SessionRegisterRequest()
+        ids = body.preloaded_ids or []
+        try:
+            for node_id in ids:
+                validate_node_id(node_id)
+            result = session_manager.register(body.project_path or project_path, agent=body.agent)
+        except (ValueError, KGError) as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        if ids:
+            session_manager.set_preloaded(result["session_id"], ids)
+            session_manager.mark_seen(result["session_id"], ids, via="preload")
+        return result
 
     @rest_api.get("/api/nodes/{level}/{node_id}/score")
     async def rest_node_score(level: str, node_id: str, session_id: str | None = None,
@@ -569,8 +592,9 @@ def create_rest_api(store, session_manager, connection_manager, version: str) ->
         """Handle {"type": "subscribe", "project_path": str | null, "sub": int}.
 
         Binds the connection to the project graph it names, resolved exactly
-        as REST resolves project_path (safe_project_path: within $HOME), or to
-        the user graph only when project_path is null. The reply echoes `sub`
+        as REST resolves project_path (resolve_project_root: within $HOME, a
+        linked worktree as its main checkout), or to the user graph only when
+        project_path is null. The reply echoes `sub`
         so the page can match it to its latest request; it is sent after the
         binding, so every project change after the reply is this project's.
         A path that fails validation unbinds (fails closed). Anything else is
@@ -587,7 +611,7 @@ def create_rest_api(store, session_manager, connection_manager, version: str) ->
         try:
             if path is not None and not isinstance(path, str):
                 raise ValueError("project_path must be a string or null")
-            root = str(safe_project_path(path)) if path else None
+            root = resolve_project_root(path) if path else None
         except ValueError as e:
             connection_manager.subscribe(session_id, None)
             return {"type": "subscribe_error", "sub": sub, "detail": str(e)}

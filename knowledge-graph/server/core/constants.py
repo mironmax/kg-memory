@@ -6,6 +6,8 @@ import os
 import re
 from pathlib import Path
 
+from .checkout import main_checkout_path
+
 logger = logging.getLogger(__name__)
 
 # Size budgets — exact rendered characters, fixed by design (no env overrides).
@@ -547,6 +549,15 @@ def safe_project_path(project_root: str) -> Path:
     return Path(resolved_str)
 
 
+def resolve_project_root(path: str) -> str:
+    """The project a validated folder belongs to: a linked git worktree is its
+    main checkout, so every caller keys the same graph. Raises ValueError
+    outside home. Not for resolving a shell's cwd, which stays the worktree."""
+    root = str(safe_project_path(path))
+    mapped = main_checkout_path(root)
+    return mapped if path_within(mapped, str(Path.home().resolve())) else root
+
+
 # A folderless Codex app chat runs in ~/Documents/Codex/<date>/<slug>. Matched
 # as that exact shape, never as everything under Documents/Codex: a folder the
 # user keeps there on purpose stays a project.
@@ -564,7 +575,7 @@ def memory_project_root(cwd: str) -> str | None:
     Looks only at the slug's own graph file: project_graph_path would read
     every stored graph looking for a rename, and may migrate one.
     """
-    root = safe_project_path(cwd)
+    root = Path(resolve_project_root(cwd))
     home = Path.home().resolve()
     if root == home or _CODEX_SCRATCH.fullmatch(str(root.relative_to(home))):
         if not (get_storage_root() / "projects" / project_slug(str(root)) / "graph.json").exists():

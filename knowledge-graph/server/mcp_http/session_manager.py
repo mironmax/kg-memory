@@ -11,9 +11,11 @@ import uuid
 from functools import wraps
 from pathlib import Path
 from core.constants import (SESSION_ID_LENGTH, SESSION_TTL_SECONDS, memory_project_root, path_within,
-                            safe_project_path, sessions_file_path)
+                            resolve_project_root, sessions_file_path)
 
 logger = logging.getLogger(__name__)
+
+_AGENT_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}")
 
 # Our own renders leave the KG session id in the transcript — the preload
 # header, the kg_read footer, and (pre-0.9.28) the recall header. A resumed
@@ -111,7 +113,7 @@ class HTTPSessionManager:
 
     @_locked
     def register(self, project_path: str | None = None, claude_sid: str | None = None,
-                 harness: str | None = None) -> dict:
+                 harness: str | None = None, agent: str | None = None) -> dict:
         """
         Register a new session with optional project root path.
         Returns {"session_id": str, "start_ts": float, "project_path": str | None}.
@@ -127,7 +129,11 @@ class HTTPSessionManager:
                 two harnesses cannot collide.
             harness: which harness registered it (mcp_http.harness), recorded
                 so the server can tell whether that harness's hooks run here.
+            agent: a caller's own name for the session (a module's persona or
+                job kind), kept on the record. Raises ValueError when malformed.
         """
+        if agent is not None and not (isinstance(agent, str) and _AGENT_RE.fullmatch(agent)):
+            raise ValueError("agent: 1-64 letters, digits, spaces, '.', '_' or '-'")
         session_id = uuid.uuid4().hex[:SESSION_ID_LENGTH]
         ts = time.time()
 
@@ -143,6 +149,8 @@ class HTTPSessionManager:
             self._sessions[session_id]["scope"] = "user"
         if harness:
             self._sessions[session_id]["harness"] = harness
+        if agent:
+            self._sessions[session_id]["agent"] = agent
         if claude_sid:
             self.bind_claude_sid(session_id, claude_sid, save=False)
 
@@ -538,7 +546,7 @@ class HTTPSessionManager:
         hook that calls this runs inside the newest session by construction.
         """
         try:
-            resolved = str(safe_project_path(project_path))
+            resolved = resolve_project_root(project_path)
         except ValueError:
             return None
         best = None
@@ -553,7 +561,8 @@ class HTTPSessionManager:
     def hooks_seen(self, project_path: str, harness: str) -> bool:
         """Has a hook from this harness ever preloaded a live session here?
 
-        The session-start hook is the only path that sets preloaded_ids, so a
+        The session-start hook is the only path that sets preloaded_ids on a
+        session with a harness (a module's REST register records none), so a
         session carrying both is proof the harness runs the plugin's hooks.
         """
         for data in self._sessions.values():

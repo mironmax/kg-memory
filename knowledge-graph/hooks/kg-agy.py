@@ -75,7 +75,8 @@ def main():
     event = sys.argv[1] if len(sys.argv) > 1 else ""
     reply, data, payload = {}, {}, {}
     base = f"http://{os.environ.get('KG_HTTP_HOST', '127.0.0.1')}:{os.environ.get('KG_HTTP_PORT', '8765')}"
-    if not os.environ.get("KG_CHORE") and event in ("SessionStart", "PreInvocation", "PostToolUse"):
+    silent = os.environ.get("KG_CHORE") or os.environ.get("KG_HOOKS") == "off"
+    if not silent and event in ("SessionStart", "PreInvocation", "PostToolUse"):
         try:
             raw = sys.stdin.buffer.read(1024 * 1024 + 1)
             if len(raw) <= 1024 * 1024:
