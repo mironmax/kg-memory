@@ -374,6 +374,42 @@ exit 0
         self.assertNotIn("knowledge-graph", json.loads(config.read_text())["mcpServers"])
 
 
+class CredentialDoctorTests(unittest.TestCase):
+    def test_doctor_names_where_a_credential_is_never_its_value(self):
+        box = Sandbox(self)
+        root = box.home / ".knowledge-graph"
+        token = "gh" + "p_" + "aB3dE5fG7hJ9kL2mN4pQ6rS8tU0vW1xYZz9q"   # assembled: no literal key in the repo
+
+        def graph(note):
+            box.write(".knowledge-graph/user.json", json.dumps(
+                {"nodes": {"deploy-access": {"id": "deploy-access", "gist": "how deploys get access",
+                                             "notes": [note]}}, "edges": {}}))
+
+        def commit(message):
+            for args in (["add", "-A"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", message]):
+                subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True)
+            return subprocess.run(["git", "-C", str(root), "rev-parse", "--short", "HEAD"],
+                                  capture_output=True, text=True).stdout.strip()
+
+        graph(f"pushes with {token}")
+        subprocess.run(["git", "init", "-q", str(root)], check=True)
+        added = commit("add")
+
+        out = box.kg("doctor").stdout
+        self.assertIn("1 credential(s) in memory", out)
+        self.assertIn("user: deploy-access (GitHub token)", out)
+        self.assertIn(added, out)
+        self.assertNotIn(token, out)
+
+        graph("the token is in the CI secret DEPLOY_TOKEN")
+        commit("fix")
+        out = box.kg("doctor").stdout
+        self.assertIn("✓ no credentials in memory. 1 commit(s)", out)
+        self.assertIn(added, out)
+        cache = json.loads((box.state / "credential_scan.json").read_text())
+        self.assertEqual(cache["commits"], [added])   # the second run read only the new commit
+
+
 class UninstallAndUpdateTests(unittest.TestCase):
     def test_uninstall_gives_back_the_users_own_settings(self):
         box = Sandbox(self)

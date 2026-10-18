@@ -87,6 +87,13 @@ def main():
         check("generic prompt yields nothing", _terms("yes go on do it") == [])
         check("dedupes preserving order", _terms("alpha beta alpha beta") == ["alpha", "beta"])
         check("caps term count", len(_terms(" ".join(f"term{i:04d}" for i in range(50)))) == 24)
+        shaped = _terms("token AIzaSyB1c2D3e4F5g6H7i8J9k0LmNoPqRsTuVwX hash "
+                        "b13ab5de43834a0b2f34d97bd0d4d4b1f00c1a2e")
+        check("drops secret-shaped terms", shaped == ["token", "hash"], shaped)
+        kept = _terms("read docs/notes/2026-10-15-release-checklist.md and test_v0924.py at 158d17b")
+        check("keeps paths, dated files, short hashes",
+              {"docs/notes/2026-10-15-release-checklist.md", "test_v0924.py", "158d17b"} <= set(kept),
+              kept)
 
         # --- 2. prompt recall ------------------------------------------------
         print("prompt recall:")
