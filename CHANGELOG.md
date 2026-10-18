@@ -14,6 +14,7 @@ The storage folder is usually a git repository the server commits on its own, so
 
 ### Fixed
 - **A leftover port override is named as the cause.** A `KG_HTTP_PORT` set when the client app launched stays in force after it is removed from the settings, until the app restarts (a `/clear` keeps it). The server it starts then finds the storage taken by the regular server on 8765, and the session was told to run `kg doctor` and `kg start`, which change nothing. The error now says the override is likely left over and to restart the client app, and the hook passes on the remedy the error names.
+- **`kg doctor` reads Codex hook trust from Codex.** Codex trusts a plugin hook by a hash of the hook and of the plugin's files, so an update can void the trust while `config.toml` still names the hook; doctor looked only for the name and said trusted while Codex (or the ChatGPT app) asked again. Doctor now asks Codex's app server for each hook's status and names a modified one, falling back to the old check when Codex does not answer.
 
 ## [0.15.1] - 2026-10-11
 
