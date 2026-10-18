@@ -16,6 +16,9 @@ The storage folder is usually a git repository the server commits on its own, so
 - **A leftover port override is named as the cause.** A `KG_HTTP_PORT` set when the client app launched stays in force after it is removed from the settings, until the app restarts (a `/clear` keeps it). The server it starts then finds the storage taken by the regular server on 8765, and the session was told to run `kg doctor` and `kg start`, which change nothing. The error now says the override is likely left over and to restart the client app, and the hook passes on the remedy the error names.
 - **`kg doctor` reads Codex hook trust from Codex.** Codex trusts a plugin hook by a hash of the hook and of the plugin's files, so an update can void the trust while `config.toml` still names the hook; doctor looked only for the name and said trusted while Codex (or the ChatGPT app) asked again. Doctor now asks Codex's app server for each hook's status and names a modified one, falling back to the old check when Codex does not answer.
 
+### Docs
+- **The Antigravity guide is current with agy 1.3.3.** It names the official marketplace added in 1.3.2 (this plugin installs from a local directory, now also through `/plugin`), records the signed-in checks passed on 1.3.3 (all but compaction, which 1.3.3 cannot trigger by hand), says how `/fork`, `/clear` and `--conversation` map to memory sessions, and states the maintenance runner's limit: a chore cannot read a reply above 3,500 bytes.
+
 ## [0.15.1] - 2026-10-11
 
 The memory in the desktop apps, and the first steps toward Windows. A new guide explains what Claude Desktop's Code tab, Cowork and Chat and the ChatGPT app's Work and Chat modes each get from the memory and what to do in each; `kg setup` now connects the ChatGPT app even without a separate Codex CLI. On Windows, which is still not supported, `kg` now loads and a report-only CI job tracks the test suite there (30 of 45 test files pass).
