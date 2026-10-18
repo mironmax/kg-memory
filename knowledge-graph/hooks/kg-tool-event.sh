@@ -9,8 +9,9 @@
 
 # A maintenance chore runs headless inside this same plugin: it needs no
 # preload (its prompt names its targets), no recall, and above all no chore
-# dispatch of its own. The runner exports KG_CHORE=1 — stay silent.
-[ -n "${KG_CHORE:-}" ] && exit 0
+# dispatch of its own. The runner exports KG_CHORE=1, and any caller that
+# wants no memory in a run sets KG_HOOKS=off — stay silent.
+{ [ -n "${KG_CHORE:-}" ] || [ "${KG_HOOKS:-}" = off ]; } && exit 0
 
 STDIN_JSON=$(cat 2>/dev/null)
 [ -z "$STDIN_JSON" ] && exit 0

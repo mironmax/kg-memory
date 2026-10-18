@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 from core.constants import project_namespace, resolve_project_root
 from core.exceptions import KGError, NodeNotFoundError, SessionNotFoundError
-from core.utils import GIST_SCAN_LIMIT
+from core.utils import GIST_SCAN_LIMIT, validate_node_id
 from .security import origin_allowed
 
 logger = logging.getLogger(__name__)
@@ -56,6 +56,16 @@ class NodeRenameRequest(BaseModel):
     project_path: str | None = None
 
 
+class SessionRegisterRequest(BaseModel):
+    project_path: str | None = None
+    # A module's own name for the session (persona, job kind).
+    agent: str | None = None
+    # Node ids the caller already put in front of the model (its own composed
+    # preload): recorded as a hook preload would be, so kg_read and recall
+    # do not repeat them.
+    preloaded_ids: list[str] | None = Field(default=None, max_length=2000)
+
+
 class ProgressSetRequest(BaseModel):
     task_id: str
     state: dict
@@ -89,9 +99,22 @@ def create_rest_api(store, session_manager, connection_manager, version: str) ->
             raise HTTPException(status_code=500, detail=str(e))
 
     @rest_api.post("/api/sessions/register")
-    async def rest_register_session(project_path: str | None = None):
-        """Register a new session. Used by visual editor."""
-        return session_manager.register(project_path)
+    async def rest_register_session(project_path: str | None = None,
+                                    body: SessionRegisterRequest | None = None):
+        """Register a new session: the visual editor (project_path query) and
+        callers that compose their own context (JSON body)."""
+        body = body or SessionRegisterRequest()
+        ids = body.preloaded_ids or []
+        try:
+            for node_id in ids:
+                validate_node_id(node_id)
+            result = session_manager.register(body.project_path or project_path, agent=body.agent)
+        except (ValueError, KGError) as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        if ids:
+            session_manager.set_preloaded(result["session_id"], ids)
+            session_manager.mark_seen(result["session_id"], ids, via="preload")
+        return result
 
     @rest_api.get("/api/nodes/{level}/{node_id}/score")
     async def rest_node_score(level: str, node_id: str, session_id: str | None = None,

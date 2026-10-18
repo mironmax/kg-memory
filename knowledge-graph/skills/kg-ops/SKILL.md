@@ -279,8 +279,10 @@ fresh AND usage low, and those two are almost never true together.
   more than twice in 30 days is left out of every chore that rewrites text in
   place (gist, notes, anchor): repeated rewriting of the same memory is the
   one maintenance pattern measured to degrade it.
-  Hooks are suppressed inside a chore run via `KG_CHORE=1`, so a chore cannot
-  preload a graph it does not need, nor dispatch another chore.
+  Hooks are suppressed inside a chore run via `KG_HOOKS=off` (and `KG_CHORE=1`
+  for older hooks), so a chore cannot preload a graph it does not need, nor
+  dispatch another chore. Any scripted run that loads the plugin but wants no
+  memory sets `KG_HOOKS=off` the same way.
 - **Disable**: set `"enabled": false` (or delete the config). A chore already
   running finishes.
 

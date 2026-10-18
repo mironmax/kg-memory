@@ -155,14 +155,16 @@ _LAUNCHER_ENV_KEYS = frozenset({"CLAUDECODE", "CLAUDE_PID", "CLAUDE_EFFORT", "AI
 
 def chore_env(base: dict | None = None) -> dict:
     """The server's environment minus the session that launched it; user
-    settings re-apply anything legitimate. KG_CHORE=1 stands this plugin's
+    settings re-apply anything legitimate. KG_HOOKS=off stands this plugin's
     own hooks down inside the run (no preload, no recall, no re-dispatch),
-    in any harness: its hooks inherit the variable from the runner.
+    in any harness: its hooks inherit the variable from the runner. KG_CHORE=1
+    says the same to hooks from before KG_HOOKS.
     """
     src = os.environ if base is None else base
     env = {k: v for k, v in src.items()
            if not k.startswith((_LAUNCHER_ENV_PREFIX, "ANTIGRAVITY_"))
            and k not in _LAUNCHER_ENV_KEYS}
+    env["KG_HOOKS"] = "off"
     env["KG_CHORE"] = "1"
     return env
 
