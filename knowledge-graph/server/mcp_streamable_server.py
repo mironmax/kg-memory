@@ -42,6 +42,7 @@ MAINTAIN_LEVEL_DOC = (
 from mcp_http import harness
 from mcp_http.security import request_refusal
 from core.autocommit import AutoCommitter
+from core.fields import load_schema, tool_params
 from core.exceptions import (
     KGError,
     NodeConflictError,
@@ -187,7 +188,10 @@ def create_mcp_server() -> Server:
     # ========================================================================
 
     def tool_definitions() -> list[Tool]:
-        """List all available tools."""
+        """List all available tools. kg_put_node and kg_search gain parameters
+        for the extension fields this storage root declares (core.fields)."""
+        from core.constants import get_storage_root
+        put_extra, search_extra = tool_params(load_schema(get_storage_root()))
         return [
             Tool(
                 name="kg_read",
@@ -242,7 +246,8 @@ def create_mcp_server() -> Server:
                         "session_id": {
                             "type": "string",
                             "description": "Session ID (to include project graph in search)"
-                        }
+                        },
+                        **search_extra,
                     },
                     "required": ["query"]
                 }
@@ -279,7 +284,8 @@ def create_mcp_server() -> Server:
                             "type": "array",
                             "items": {"type": "string"},
                             "description": "Related file paths or artifact references. Replaces the stored list"
-                        }
+                        },
+                        **put_extra,
                     },
                     "required": ["session_id", "level", "id", "gist"]
                 }
@@ -629,7 +635,8 @@ def create_mcp_server() -> Server:
                 # RRF search lives in the store (which holds the lock during the
                 # scan — the maintenance thread mutates node dicts concurrently).
                 viewed_at = time.time()
-                result = store.search(query_raw, session_id=sid, seen=seen)
+                result = store.search(query_raw, session_id=sid, seen=seen,
+                                      tags=arguments.get("tags"))
 
                 if result["total"] == 0:
                     suffix = "" if sid else " (no session_id — project graph searched best-effort; pass session_id from kg_read for accurate project search)"
@@ -654,6 +661,9 @@ def create_mcp_server() -> Server:
                 sid = arguments["session_id"]
                 session_manager.increment_ops(sid)
                 viewed_at = time.time()
+                fields = dict(arguments.get("fields") or {})
+                if "tags" in arguments:
+                    fields["tags"] = arguments["tags"]
                 try:
                     result = store.put_node(
                         level=arguments["level"],
@@ -661,7 +671,8 @@ def create_mcp_server() -> Server:
                         gist=arguments["gist"],
                         notes=arguments.get("notes"),
                         touches=arguments.get("touches"),
-                        session_id=sid
+                        session_id=sid,
+                        fields=fields or None,
                     )
                 except NodeConflictError as e:
                     # The answer shows the node in full, so it is a full read:

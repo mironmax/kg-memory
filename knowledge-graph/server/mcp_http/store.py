@@ -46,7 +46,8 @@ from core.search import (
     rank_nodes, connection_paths,
 )
 from core.credentials import refuse_credentials
-from core.exceptions import NodeConflictError
+from core.exceptions import NodeConflictError, NodeLockedError
+from core.fields import is_locked, load_schema
 from core import recurrence
 from core.constants import (
     WRITTEN_FIELD, GIST_TS_FIELD, GIST_TS_MAX, IDF_SHARPNESS, NEAR_DUP_MIN_SCORE, NEAR_DUP_RATIO,
@@ -61,6 +62,10 @@ from core.persistence import (
 from .session_manager import HTTPSessionManager
 
 logger = logging.getLogger(__name__)
+
+# Refused agent writes on locked nodes, per graph, newest last.
+REJECTIONS_TASK_ID = "rejections"
+REJECTIONS_MAX = 50
 
 
 def _trail_entry(state: dict) -> dict:
@@ -703,6 +708,8 @@ class MultiProjectGraphStore:
         session_id: str | None = None,
         project_path: str | None = None,
         guard: bool = True,
+        fields: dict | None = None,
+        admin: bool = False,
     ) -> dict:
         """Create or update a node.
 
@@ -710,8 +717,12 @@ class MultiProjectGraphStore:
         _resolve_graph_key. guard=False skips the stale-view refusal for a
         human edit made on a screen showing the whole node (the editor); it
         still stamps the write, so agents holding an older view are refused.
+        fields: extension fields (core.fields); None as a value removes one.
+        admin: a person's surface (REST, editor), which alone may write a
+        locked node or set `locked`.
         """
         validate_node_id(node_id)
+        fields = load_schema(self.config.storage_root).validate(fields, admin) if fields else {}
         with self.lock:
             level, graph_key = self._resolve_graph_key(level, session_id, project_path)
 
@@ -723,12 +734,17 @@ class MultiProjectGraphStore:
             # structured field. No-op for well-formed input.
             gist, notes, touches = heal_node_fields(gist, notes, touches)
             refuse_credentials(gist=gist, notes=notes, touches=touches)
+            text_fields = [v for v in fields.values() if isinstance(v, str)]
+            if text_fields:
+                refuse_credentials(gist="", notes=text_fields, touches=None)
 
             # Create or update node. The id length rule applies only to a
             # CREATE: an update, promotion or rewire of a node named before the
             # rule existed must stay writable, or the graph's own history
             # becomes read-only.
             is_new = node_id not in nodes
+            if not is_new and not admin and is_locked(nodes[node_id]):
+                self._refuse_locked(graph_key, level, node_id, "rewrite", session_id)
             if is_new:
                 validate_new_node_id(node_id)
             elif session_id and guard:
@@ -737,7 +753,8 @@ class MultiProjectGraphStore:
             node = nodes.get(node_id, {"id": node_id})
             changed = (is_new or node.get("gist") != gist
                        or (notes is not None and node.get("notes") != notes)
-                       or (touches is not None and node.get("touches") != touches))
+                       or (touches is not None and node.get("touches") != touches)
+                       or any(node.get(k) != v for k, v in fields.items()))
             # A real gist change is a rewrite; the churn guard counts these
             # (core.chores.is_churning). Not the version counter: that also
             # bumps when a read promotes the node out of the archive, and a
@@ -760,6 +777,11 @@ class MultiProjectGraphStore:
                 node["notes"] = notes
             if touches is not None:
                 node["touches"] = touches
+            for key, value in fields.items():
+                if value is None:
+                    node.pop(key, None)
+                else:
+                    node[key] = value
 
             # Stamp creation time once — never reset by subsequent updates
             now = time.time()
@@ -832,6 +854,18 @@ class MultiProjectGraphStore:
             "project": session.get("project_path"), "id": node_id, "level": level, "via": "note",
             "session_likes": len(liked)}, USEFUL_LOG_MAX_BYTES)
         return True
+
+    def _refuse_locked(self, graph_key: str, level: str, node_id: str, op: str,
+                       session_id: str | None):
+        """Record a refused agent write on a locked node where a person can read
+        it (kg_progress task "rejections"), then raise. Caller holds the lock."""
+        entry = {"ts": time.time(), "op": op, "id": node_id, "session": session_id}
+        slot = self._progress.setdefault(graph_key, {}).setdefault(REJECTIONS_TASK_ID, {})
+        slot["entries"] = (slot.get("entries") or [])[-(REJECTIONS_MAX - 1):] + [entry]
+        self.dirty[graph_key] = True
+        self._write_through(graph_key)
+        logger.warning(f"Refused {op} of locked node '{node_id}' in {graph_key} (session {session_id})")
+        raise NodeLockedError(level, node_id, op)
 
     def _refuse_stale_write(self, level: str, node_id: str, node: dict, session_id: str,
                             notes, touches) -> None:
@@ -1109,7 +1143,7 @@ class MultiProjectGraphStore:
         }
 
     def delete_node(self, node_id: str, level: str | None = None, session_id: str | None = None,
-                    project_path: str | None = None) -> dict:
+                    project_path: str | None = None, admin: bool = False) -> dict:
         """Delete a node and its connected edges. Level auto-resolved if not provided.
 
         project_path resolves a project graph directly (used by the visual editor,
@@ -1130,6 +1164,8 @@ class MultiProjectGraphStore:
 
             if node_id not in nodes:
                 raise NodeNotFoundError(resolved_level, node_id)
+            if not admin and is_locked(nodes[node_id]):
+                self._refuse_locked(graph_key, resolved_level, node_id, "delete", session_id)
 
             # Delete connected edges
             edges_to_delete = [
@@ -1159,7 +1195,8 @@ class MultiProjectGraphStore:
             return {"deleted": node_id, "level": resolved_level, "edges_deleted": len(edges_to_delete)}
 
     def rename_node(self, old_id: str, new_id: str, level: str | None = None,
-                    session_id: str | None = None, project_path: str | None = None) -> dict:
+                    session_id: str | None = None, project_path: str | None = None,
+                    admin: bool = False) -> dict:
         """Rename a node, carrying every reference with it.
 
         put_node(new) + delete_node(old) is NOT a rename. It drops _created_ts,
@@ -1189,6 +1226,8 @@ class MultiProjectGraphStore:
             nodes = self.graphs[graph_key]["nodes"]
             if old_id not in nodes:
                 raise NodeNotFoundError(resolved_level, old_id)
+            if not admin and is_locked(nodes[old_id]):
+                self._refuse_locked(graph_key, resolved_level, old_id, "rename", session_id)
             if new_id in nodes:
                 raise KGError(
                     f"Node {new_id!r} already exists in the {resolved_level} graph. "
@@ -1633,7 +1672,7 @@ class MultiProjectGraphStore:
             return result
 
     def search(self, query: str, session_id: str | None = None, seen: set | None = None,
-               top_k: int = 5, more_k: int = 10) -> dict:
+               top_k: int = 5, more_k: int = 10, tags: list[str] | None = None) -> dict:
         """Full-text search across node IDs, gists, notes and touches.
 
         Reciprocal Rank Fusion across per-term ranked lists. The query is
@@ -1661,14 +1700,19 @@ class MultiProjectGraphStore:
             "total":      total match count,
           }
 
+        tags limits the search to nodes carrying any of them (core.fields).
+
         Holds the store lock for the whole scan (the background maintenance
         thread mutates node dicts concurrently).
         """
         seen = seen or set()
         unigrams, bigrams = search_terms(query)
+        wanted = set(tags or ())
 
         def search_graph_rrf(graph_key: str) -> tuple[dict[str, float], dict[str, dict]]:
             nodes = self.graphs.get(graph_key, {}).get("nodes", {})
+            if wanted:
+                nodes = {nid: n for nid, n in nodes.items() if wanted & set(n.get("tags") or ())}
             return rank_nodes(nodes, unigrams, bigrams)
 
         def build_record(graph_key: str, node_id: str, label: str, score: float,
@@ -1931,6 +1975,7 @@ class MultiProjectGraphStore:
         edges = self.graphs[graph_key]["edges"]
         versions = self._versions[graph_key]
 
+        restored = self.compactor.restore_locked(nodes)
         archived = self.compactor.compact_if_needed(nodes, edges, versions, label=graph_key)
         # Refill runs on a tick that archived, too. Compaction archives whole nodes
         # until the graph is under the fill ceiling, so its last one can land it well
@@ -1942,7 +1987,7 @@ class MultiProjectGraphStore:
         swapped = [] if archived or refilled else self.compactor.rebalance(nodes, edges, versions)
         orphaned = self.compactor.orphan_archived_if_needed(nodes, edges, versions)
 
-        if archived or refilled or swapped or orphaned:
+        if restored or archived or refilled or swapped or orphaned:
             self.dirty[graph_key] = True
             self._write_through(graph_key)
 
@@ -2048,7 +2093,7 @@ class MultiProjectGraphStore:
         to_delete = []
 
         for node_id, node in nodes.items():
-            if "_orphaned_ts" not in node:
+            if "_orphaned_ts" not in node or is_locked(node):
                 continue
             orphaned_duration = current_time - node["_orphaned_ts"]
             if orphaned_duration > grace_seconds:

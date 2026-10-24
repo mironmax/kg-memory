@@ -36,6 +36,8 @@ class NodeCreateRequest(BaseModel):
     # Resolves a project graph directly — required by the visual editor, whose
     # session has no project_path registered. Same addressing as read/delete.
     project_path: str | None = None
+    # Extension fields and `locked` (core.fields); a null value removes one.
+    fields: dict | None = None
 
 
 class EdgeCreateRequest(BaseModel):
@@ -437,6 +439,8 @@ def create_rest_api(store, session_manager, connection_manager, version: str) ->
                 session_id=data.session_id,
                 project_path=data.project_path,
                 guard=False,
+                fields=data.fields,
+                admin=True,
             )
         except (KGError, ValueError) as e:
             raise HTTPException(status_code=400, detail=str(e))
@@ -454,7 +458,7 @@ def create_rest_api(store, session_manager, connection_manager, version: str) ->
         """
         try:
             return store.delete_node(node_id, level=level, session_id=session_id,
-                                     project_path=project_path)
+                                     project_path=project_path, admin=True)
         except NodeNotFoundError as e:
             raise HTTPException(status_code=404, detail=str(e))
         except (KGError, ValueError) as e:
@@ -473,6 +477,7 @@ def create_rest_api(store, session_manager, connection_manager, version: str) ->
                 level=data.level,
                 session_id=data.session_id,
                 project_path=data.project_path,
+                admin=True,
             )
         except NodeNotFoundError as e:
             raise HTTPException(status_code=404, detail=str(e))

@@ -64,6 +64,7 @@ from .constants import (
     NODE_ID_TARGET_WORDS,
 )
 from .debt import GIST_OVERSIZE_CHARS
+from .fields import is_locked
 from .lift import lift_clusters, lifted_ids
 from .utils import node_id_has_date, node_id_words
 
@@ -159,7 +160,8 @@ def candidates_by_kind(nodes, edges, exclude: set | None = None,
     dangling touch the server found a fix for. Precomputed by the caller,
     because finding one walks the tree and runs git.
     """
-    exclude = exclude or set()
+    # A locked node refuses every chore write: picking one only spends a run.
+    exclude = (exclude or set()) | {n["id"] for n in nodes if is_locked(n)}
     in_context = in_context or set()
     anchors = anchors or {}
     active = [n for n in _active(nodes) if n["id"] not in exclude]

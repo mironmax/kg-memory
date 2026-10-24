@@ -25,12 +25,14 @@ one edge, one line, and the budget chars stay available for gists. Local
 completeness lives in single-node reads, which list all of a node's edges.
 """
 
+from .fields import is_locked
 from .utils import is_active, is_orphaned, edge_is_live
 
 
-def render_active_line(node_id: str, gist: str) -> str:
-    """An active node: id + gist on one line."""
-    return f"  {node_id}: {gist}"
+def render_active_line(node_id: str, gist: str, locked: bool = False) -> str:
+    """An active node: id + gist on one line; a locked one says so, so an
+    agent does not plan an edit it cannot make (core.fields)."""
+    return f"  {node_id}{' (locked)' if locked else ''}: {gist}"
 
 
 def render_archived_line(node_id: str) -> str:
@@ -135,7 +137,7 @@ def plan_level(nodes: dict, edges: dict, include_archived: bool = False) -> dict
         cited[citer].append((e, render_edge_citation(e["rel"], other, outgoing)))
 
     active_plan = [
-        (nid, render_active_line(nid, nodes[nid].get("gist", "")), cited[nid])
+        (nid, render_active_line(nid, nodes[nid].get("gist", ""), is_locked(nodes[nid])), cited[nid])
         for nid in ordered
     ]
     archived_plan = [
