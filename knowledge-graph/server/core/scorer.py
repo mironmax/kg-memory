@@ -11,6 +11,7 @@ from .constants import (
     SCORE_WEIGHT_CONNECTEDNESS,
     SCORE_WEIGHT_USEFULNESS,
 )
+from .fields import is_locked
 from .render import render_active_line, render_edge_citation
 
 
@@ -152,7 +153,7 @@ class NodeScorer:
                 incident.setdefault(edge["to"], []).append(edge)
         fresh, used, charged = set(), 0, set()
         for nid in candidates:
-            cost = len(render_active_line(nid, nodes[nid].get("gist", ""))) + 1
+            cost = len(render_active_line(nid, nodes[nid].get("gist", ""), is_locked(nodes[nid]))) + 1
             new_edges = []
             for edge in incident.get(nid, ()):
                 key = (edge["from"], edge["to"], edge["rel"])
