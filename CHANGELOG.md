@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Security
+- **Worktree detection reads nothing outside your home folder.** Finding a linked worktree's main checkout reads its `.git` file and the `commondir` it names. It now stops at the home folder and follows neither file when it points outside, the same boundary project roots already have.
+
 ## [0.16.0] - 2026-10-18
 
 Memory for callers outside the usual session. A git worktree now shares its main checkout's memory instead of starting empty; `KG_HOOKS=off` keeps the memory out of a scripted run; and a program that composes its own context can open a session by REST, naming itself and what it already showed the model.
