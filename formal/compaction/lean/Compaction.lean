@@ -63,7 +63,18 @@ ceiling (the F34 fix). `post` and `pot` are two candidate rules for rebalance
 (F33), not adopted: `post` re-scores a tentative swap and keeps it only if
 the promoted node still wins by the margin afterwards; `pot` keeps a swap only
 if it raises the summed score of the active nodes, scored after the swap, by
-the margin. Runs in about 1.5 minutes.
+the margin. Both runs take about 2.5 minutes.
+
+Locked nodes (0.17, #66), searched in a second run over the same graphs with
+every non-empty locked set and the two rebalance rules still open (`post`, the
+code since #67, and `pot`): the tick first restores a locked node found
+archived or orphaned (`restore_locked`); compaction and rebalance never pick a
+locked node; a locked line renders " (locked)" (9 characters), in the size and
+in the fresh tier's cost. Added properties:
+  L1  a locked node is archived or orphaned when a tick ends;
+  L2  compaction or rebalance archives a locked node.
+B1, B2 and B4 are exempt ("Bn exempt") when every active node left is locked
+or fresh: no pass may move either, so such a graph stays over by design.
 -/
 
 -- core/constants.py
@@ -84,6 +95,7 @@ def ANCHOR := 5
 def EDGE := 15
 def ACTIVE_HDR := 8
 def ARCH_HDR := 53
+def LOCK_MARK := 9                 -- " (locked)", render_active_line (render.py:35)
 
 /-- Python's int(m * r) for m ≥ 0. -/
 def ratio (m : Nat) (r : Float) : Nat := (m.toFloat * r).floor.toUInt64.toNat
@@ -96,6 +108,7 @@ structure Cfg where
   use : Array Nat             -- number of _useful_ts stamps, all at one time
   created : Array Nat         -- _created_ts
   M : Nat                     -- max_chars
+  locked : Nat := 0           -- bitmask: "locked": true (core/fields.py, #66)
 
 structure St where
   arch : Nat   -- bitmask: "_archived" set
@@ -109,6 +122,9 @@ def isAct (s : St) (i : Nat) : Bool := !bit s.arch i && !bit s.orph i
 def setArch (s : St) (i : Nat) (b : Bool) : St :=
   let m := s.arch - (if bit s.arch i then 1 <<< i else 0)
   { s with arch := if b then m + (1 <<< i) else m }
+def isLocked (c : Cfg) (i : Nat) : Bool := bit c.locked i
+/-- the rendered active line of node i, newline included -/
+def lineOf (c : Cfg) (i : Nat) : Nat := LINE c.gist[i]! + (if isLocked c i then LOCK_MARK else 0)
 
 /-- Stable insertion sort: `lt a b` puts a before b; equal keys keep list order
 (Python's sorted, also with reverse=True). -/
@@ -126,7 +142,7 @@ def size (c : Cfg) (s : St) : Nat := Id.run do
   let arc := (ids c).filter (isArch s)
   let mut t := (if act.isEmpty then 0 else ACTIVE_HDR) + (if arc.isEmpty then 0 else ARCH_HDR)
                + ANCHOR * arc.length
-  for i in act do t := t + LINE c.gist[i]!
+  for i in act do t := t + lineOf c i
   for (f, to) in c.edges do
     if !isOrph s f && !isOrph s to && (isAct s f || isAct s to) then t := t + EDGE
   return t
@@ -140,7 +156,7 @@ def freshIds (c : Cfg) (s : St) : List Nat := Id.run do
   let mut fresh : List Nat := []
   let mut charged : List Nat := []
   for i in cands do
-    let mut cost := LINE c.gist[i]!
+    let mut cost := lineOf c i
     let mut newE : List Nat := []
     for k in [0:c.edges.size] do
       let (f, t) := c.edges[k]!
@@ -240,7 +256,7 @@ def compact (x : Ctx) (s0 : St) : St × List Nat × List Nat := Id.run do
   let mut est := x.size s
   if est ≤ x.c.M then return (s, [], [])  -- :46
   let sa := x.scores s false  -- :53
-  let elig := (ids x.c).filter fun i => (sa[i]!).isSome
+  let elig := (ids x.c).filter fun i => (sa[i]!).isSome && !isLocked x.c i  -- locked never evicted
   if elig.isEmpty then return (s, [], [])  -- :55 stall
   let target := ratio x.c.M TARGET  -- :75
   let mut arch : List Nat := []
@@ -333,7 +349,7 @@ def rebalance (x : Ctx) (rb : Rb) (s0 : St) : St × List (Nat × Nat) := Id.run 
   for _ in [0:MAX_SWAPS] do
     let sc := x.candScores s  -- :277
     let fresh := x.fresh s
-    let act := (ids x.c).filter fun i => isAct s i && !fresh.contains i && (sc[i]!).isSome
+    let act := (ids x.c).filter fun i => isAct s i && !fresh.contains i && (sc[i]!).isSome && !isLocked x.c i
     let arc := (ids x.c).filter fun i => isArch s i && (sc[i]!).isSome
     if act.isEmpty || arc.isEmpty then break  -- :284
     let worst := act.foldl (fun w i => if get sc i < get sc w then i else w) act.head!  -- :286
@@ -380,7 +396,17 @@ structure Variant where
   rb : Rb
   deriving Inhabited
 
+/-- restore_locked (compactor.py:35-50): a locked node archived or orphaned is active again. -/
+def restore (c : Cfg) (s : St) : St × List Nat :=
+  let back := (ids c).filter fun i => isLocked c i && (bit s.arch i || bit s.orph i)
+  ({ arch := s.arch - (s.arch &&& c.locked), orph := s.orph - (s.orph &&& c.locked) }, back)
+
+/-- B1, B2, B4 are exempt when every active node is locked or fresh. -/
+def exempt (x : Ctx) (s : St) : Bool :=
+  (ids x.c).all fun i => !isAct s i || isLocked x.c i || (x.fresh s).contains i
+
 structure Ev where
+  rest : List Nat := []           -- restore_locked's return
   arch : List Nat := []           -- compact_if_needed's return
   res : List Nat := []            -- of which resurrected
   refl : List Nat := []
@@ -391,7 +417,7 @@ structure Ev where
   deriving Inhabited
 
 def Ev.acted (e : Ev) : Bool :=
-  !e.arch.isEmpty || !e.refl.isEmpty || !e.swaps.isEmpty || !e.orph.isEmpty
+  !e.rest.isEmpty || !e.arch.isEmpty || !e.refl.isEmpty || !e.swaps.isEmpty || !e.orph.isEmpty
 
 /-- One saver tick on one graph: store.py:1905-1911 (then _prune_orphans, a no-op
 within its 365-day grace). `last` is the last pass that acted (for B5). -/
@@ -399,10 +425,11 @@ def tick (x : Ctx) (v : Variant) (s : St) (last : String) : St × Ev × String :
   let ceil := ratio x.c.M TARGET
   let mut fl : List String := []
   let mut last := last
-  let (s1, a, res) := compact x s
+  let (s0, back) := restore x.c s  -- store.py _maybe_compact, before compaction
+  let (s1, a, res) := compact x s0
   if !a.isEmpty then
-    if x.size s1 > x.c.M && (ids x.c).any (fun i => isAct s1 i && !(x.fresh s1).contains i) then
-      fl := "B4" :: fl
+    if a.any (isLocked x.c) then fl := "L2" :: fl
+    if x.size s1 > x.c.M then fl := (if exempt x s1 then "B4 exempt" else "B4") :: fl
     if last == "refill" then fl := "B5" :: fl
     last := "compact"
   let mut s2 := s1
@@ -414,7 +441,7 @@ def tick (x : Ctx) (v : Variant) (s : St) (last : String) : St × Ev × String :
     r := pr
     if !r.isEmpty then
       last := "refill"
-      if x.size s2 > ceil then fl := "B1" :: fl
+      if x.size s2 > ceil then fl := (if exempt x s2 then "B1 exempt" else "B1") :: fl
     if before < ceil then
       let left := (ids x.c).filter (isArch s2)
       if left.any (fun i => x.size (setArch s2 i false) ≤ ceil) then
@@ -427,9 +454,11 @@ def tick (x : Ctx) (v : Variant) (s : St) (last : String) : St × Ev × String :
     w := pw
     if !w.isEmpty then
       last := "rebalance"
-      if x.size s3 > x.c.M then fl := "B2" :: fl
+      if w.any (fun (_, out) => isLocked x.c out) then fl := "L2" :: fl
+      if x.size s3 > x.c.M then fl := (if exempt x s3 then "B2 exempt" else "B2") :: fl
   let (s4, o) := orphan x s3  -- :1911
-  return (s4, { arch := a, res, refl := r, swaps := w, orph := o, flags := fl, size := x.size s4 }, last)
+  if (ids x.c).any (fun i => isLocked x.c i && !isAct s4 i) then fl := "L1" :: fl
+  return (s4, { rest := back, arch := a, res, refl := r, swaps := w, orph := o, flags := fl, size := x.size s4 }, last)
 
 def nm (i : Nat) : String := s!"n{i}"
 def nms (l : List Nat) : String := ", ".intercalate (l.map nm)
@@ -437,6 +466,7 @@ def showSet (c : Cfg) (p : Nat → Bool) : String := "{" ++ nms ((ids c).filter 
 
 def Ev.show (e : Ev) : String := Id.run do
   let mut parts : List String := []
+  if !e.rest.isEmpty then parts := parts ++ [s!"restore locked [{nms e.rest}]"]
   if !e.arch.isEmpty then
     parts := parts ++ [s!"compact archives [{nms e.arch}]" ++
       (if e.res.isEmpty then "" else s!", resurrects [{nms e.res}]")]
@@ -511,6 +541,7 @@ def showCfg (c : Cfg) (s0 : St) : String :=
   s!"max={c.M} ceiling={ratio c.M TARGET} fresh budget={ratio c.M FRESH_RATIO}; " ++
   "nodes " ++ ", ".intercalate ((ids c).map fun i =>
     s!"{nm i}(gist {c.gist[i]!}, read {c.read[i]!}, created {c.created[i]!}" ++
+    (if isLocked c i then ", locked" else "") ++
     (if c.use[i]! > 0 then ", endorsed)" else ")")) ++
   "; edges " ++ (if c.edges.isEmpty then "none" else
     ", ".intercalate (c.edges.toList.map fun (f, t) => s!"{nm f}->{nm t}")) ++
@@ -565,7 +596,7 @@ def SCOPES : List Scope :=
 def PROPS : List String :=
   ["C1", "C1 compact->refill", "C1 compact->rebalance", "C1 rebalance->refill",
    "C1 rebalance->rebalance", "F", "R", "C2 cycle in one tick", "C2 cycle across ticks",
-   "B1", "B2", "B3", "B3 last", "B4", "B5", "B6"]
+   "B1", "B1 exempt", "B2", "B2 exempt", "B3", "B3 last", "B4", "B4 exempt", "B5", "B6", "L1", "L2"]
 
 def variants : List Variant :=
   [{ name := "code", sameTick := false, whole := false, rb := .code },
@@ -574,18 +605,24 @@ def variants : List Variant :=
    { name := "A+B+post", sameTick := true, whole := true, rb := .post },
    { name := "A+B+pot", sameTick := true, whole := true, rb := .pot }]
 
+/-- The second run: the same graphs with each non-empty locked set. `A+B+post`
+is the merged 0.17 code (#66 with #67). -/
+def lockedVariants : List Variant :=
+  [{ name := "locked: A+B+post (0.17)", sameTick := true, whole := true, rb := .post },
+   { name := "locked: A+B+pot", sameTick := true, whole := true, rb := .pot }]
+
 structure Tally where
   counts : Std.HashMap String Nat := {}
   first : Std.HashMap String String := {}
   deriving Inhabited
 
-def main : IO Unit := do
-  let vs := variants.toArray
+def search (vs : Array Variant) (locks : Bool) : IO Unit := do
   let mut tallies : Array Tally := vs.map fun _ => {}
   let mut total := 0
   let mut graphs := 0
-  for sc in SCOPES do
-    for c in configs sc do
+  let all := SCOPES.flatMap fun sc => (configs sc).flatMap fun c =>
+    if locks then (List.range' 1 (2 ^ c.n - 1)).map fun l => { c with locked := l } else [c]
+  for c in all do
       graphs := graphs + 1
       let x := Ctx.mk' c
       for m in List.range (2 ^ c.n) do
@@ -600,7 +637,7 @@ def main : IO Unit := do
               let tr := "\n".intercalate (("    " ++ showCfg c s0) :: showTrace c st evs k)
               t := { t with first := t.first.insert p tr }
           tallies := tallies.set! vi t
-  IO.println s!"{graphs} graphs, {total} trajectories per variant (every start), each ticked to its fixpoint or cycle"
+  IO.println s!"{graphs} graphs{if locks then " (each with a non-empty locked set)" else ""}, {total} trajectories per variant (every start), each ticked to its fixpoint or cycle"
   for vi in [0:vs.size] do
     let t := tallies[vi]!
     IO.println s!"===== variant {vs[vi]!.name}"
@@ -611,3 +648,7 @@ def main : IO Unit := do
       match t.first.get? p with
       | some tr => IO.println s!"  first {p}:\n{tr}"
       | none => pure ()
+
+def main : IO Unit := do
+  search variants.toArray false
+  search lockedVariants.toArray true

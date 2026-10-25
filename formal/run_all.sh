@@ -56,6 +56,7 @@ run compaction/evidence/model.log            lean --run compaction/lean/Compacti
 run compaction/evidence/repro.log            $PY compaction/repro/repro_tick.py
 run compaction/evidence/tick-store-v1.log    $PY compaction/repro/tick_search.py store v1 20000
 run compaction/evidence/tick-store-v2.log    $PY compaction/repro/tick_search.py store v2 20000
+run compaction/evidence/tick-store-v3.log    $PY compaction/repro/tick_search.py store v3 20000
 run security/evidence/repro.log              $PY security/repro/repro_csrf.py
 run delivery/evidence/model-paging.log       lean --run delivery/lean/Paging.lean
 run delivery/evidence/model-agy.log          lean --run delivery/lean/Agy.lean
