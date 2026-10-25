@@ -34,6 +34,10 @@ cross-session awareness (F35–F38). Left:
 - running the models in CI. `run_all.sh` prints results but never fails, so a
   CI job would need expected outcomes per model and reproduction.
 
+[PROPOSAL.md](PROPOSAL.md) proposes how the work continues: shared code and
+CI for the models, model traces as test fixtures, a first proof (F33), and a
+written list of what the system promises.
+
 ## Method
 
 1. **Model** one risky concern: a state machine, a thread interleaving, or a
