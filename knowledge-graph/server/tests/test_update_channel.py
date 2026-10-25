@@ -43,6 +43,15 @@ PLUGIN = Path(__file__).resolve().parents[2]
 STATE_FILE = Path(_STORAGE.name) / "updates.json"
 
 
+def sandbox_env(**extra) -> dict:
+    """A child's environment with its own home (USERPROFILE on Windows)."""
+    env = {"PATH": os.environ["PATH"], "HOME": _STATE.name, "USERPROFILE": _STATE.name, **extra}
+    for name in ("SYSTEMROOT", "SystemRoot"):   # Windows sockets need it
+        if name in os.environ:
+            env[name] = os.environ[name]
+    return env
+
+
 def free_port() -> int:
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
@@ -211,6 +220,7 @@ class ReadinessFactsTests(unittest.TestCase):
 
 
 class HookTests(Fresh):
+    @unittest.skipIf(os.name == "nt", "the hooks are bash scripts")
     def test_the_hook_sends_its_plugin_version(self):
         seen = {}
 
@@ -236,8 +246,8 @@ class HookTests(Fresh):
         threading.Thread(target=server.serve_forever, daemon=True).start()
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
-        env = {"PATH": os.environ["PATH"], "HOME": _STATE.name, "KG_HTTP_PORT": str(port),
-               "CLAUDE_PLUGIN_ROOT": str(PLUGIN), "CLAUDE_PROJECT_DIR": _STATE.name}
+        env = sandbox_env(KG_HTTP_PORT=str(port), CLAUDE_PLUGIN_ROOT=str(PLUGIN),
+                          CLAUDE_PROJECT_DIR=_STATE.name)
         out = subprocess.run([str(PLUGIN / "hooks" / "kg-autostart.sh")], input="{}",
                              capture_output=True, text=True, env=env, timeout=30)
         self.assertIn("ctx", out.stdout, out.stderr)
@@ -247,9 +257,8 @@ class HookTests(Fresh):
 
 class CheckCommandTests(Fresh):
     def run_kg(self, *args):
-        env = {"PATH": os.environ["PATH"], "HOME": _STATE.name,
-               "XDG_STATE_HOME": _STATE.name, "KG_HTTP_PORT": str(free_port()),
-               "KG_STORAGE_ROOT": _STORAGE.name}
+        env = sandbox_env(XDG_STATE_HOME=_STATE.name, KG_HTTP_PORT=str(free_port()),
+                          KG_STORAGE_ROOT=_STORAGE.name)
         return subprocess.run([sys.executable, str(PLUGIN / "cli" / "kg.py"), *args],
                               capture_output=True, text=True, env=env, timeout=60)
 
