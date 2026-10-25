@@ -1,167 +1,101 @@
-# Proposal: from bounded models to a checked core
+# The formal work after the first two passes
 
-> **Status: proposal, for review.** Nothing here changes the server. It
-> proposes how the formal work continues after the first two passes: what to
-> build first, where it pays off, and which decisions are the maintainer's.
-> Each step is small and stands on its own; a step that does not pay off can
-> stop the line without leaving half-built work behind. Open questions are
-> numbered (Q1–Q7) so a review can answer them by number.
+> **Status: plan, decided in review of PR #69.** It says what the formal work
+> does next, in what order, and what it leaves out. Each step is small and
+> stands on its own. Each ends in something usable or in a recorded decision
+> to stop, never in half-built infrastructure.
 
-## 1. Where the formal work stands
+## 1. Where it stands
 
 The two passes were an experiment, and it worked: 38 findings, 35 of them
-fixed, each with a regression test. Writing a
-model also paid off on its own. It forced exact questions ("which threads touch
-this dict?"), and those found F4 and F10 without any search.
+fixed, each with a regression test. Writing a model also paid off on its own.
+It forced exact questions ("which threads touch this dict?"), and those
+found F4 and F10 without any search.
 
 What the experiment did not use, read from `formal/` at `a6240b8`:
 
 - **No proofs.** None of the 14 model files contains a `theorem`. Each is an
   executable program (`lean --run`) that searches every state within stated
-  bounds. That is model checking, the job TLA+ or Alloy usually do, with Lean
-  as the programming language. Every "holds" in FINDINGS.md means "holds
-  within the bounds", as the README's honesty notes say.
+  bounds. That is model checking with Lean as the programming language, and
+  every "holds" in FINDINGS.md means "holds within the bounds".
 - **No shared code.** Each file carries its own search loop (14 copies of
-  `bfs`, `explore` or `trajectory`) and its own report printer. There is no
-  Lake package, so nothing can be imported between models.
-- **No link to the code.** A model cites the lines it mirrors, but nothing
-  notices when those lines change. `run_all.sh` prints results and never
-  fails, and no CI job runs the models or the 28 reproduction scripts.
+  `bfs`, `explore` or `trajectory`). There is no Lake package.
+- **Nothing in CI.** `run_all.sh` prints results and never fails. No CI job
+  runs the models or the 28 reproduction scripts, so nothing notices when
+  the code moves away from a model.
 - **No shared statement of what the system promises.** Each model states its
-  own properties. Nothing checks that two models assume the same thing about
-  each other.
+  own properties.
 
-Those four gaps are the foundations this proposal lays, in that order of
-cost: shared code and CI first, then the link to the code, then proofs and a
-spec where they earn their place.
+Since then, two open 0.17 PRs change the compaction tick:
 
-Prior art worth reading: [lean-zip](https://github.com/kim-em/lean-zip)
-ships the code its theorems are about (a verified DEFLATE whose round-trip
-proof gates every optimisation), and [leanin](https://github.com/scidonia/leanin)
-writes a concurrency runtime in Lean and proves its model against stated
-specifications of the native operations.
+- **Locked nodes (#66).** Compaction never archives a locked node, and
+  rebalance leaves locked nodes out of its active list. `restore_locked`
+  brings back a locked node found archived or orphaned. A graph whose locked
+  share is over budget stays over budget by design.
+- **F33, option 1 (#67).** Rebalance re-scores a tentative swap and keeps it
+  only if the promoted node still wins by the margin. `tick_search.py store`
+  over 20,000 graphs per generator: cycling graphs went from 1,015 to 1 (v1)
+  and from 1,043 to 0 (v2). The residual, v1 seed 11314, is two interleaved
+  swaps that each pass alone, with period 4. It is a counterexample to
+  option 1 settling. Whether to move to option 2 (a summed-score potential
+  that must rise) is open, and step 5 below is its input.
 
 ## 2. Where the value is
 
-The project's history says where defects come from and where change keeps
-coming.
+1. **Scoring, budgets and the compaction tick.** Retuned in nearly every
+   minor release. 0.17 adds locks and the F33 fix. The retention work after
+   it replaces the 365-day orphan deletion with a budget-based one and adds
+   an activity clock, so both the orphan pass and scoring change again. Tick
+   properties are stated over an abstract score for that reason. No
+   pluggable scorer is planned; the point is that a property that holds for
+   any score survives the next retune.
+2. **Delivery, seen-state and stale views.** The next callers are
+   programmatic:
+   - a compose endpoint that returns a preload without registering an
+     interactive session or adding the "call kg_read first" header;
+   - project-only sessions;
+   - a product-owned headless runner;
+   - conversation threads, which carry work state and letters;
+   - an experimental background recall partner that pushes picks through
+     the seen-ledger.
 
-1. **Scoring, budgets and the compaction tick.** Retuned in almost every
-   minor release (0.13.0: fresh tier, rebalance; 0.14.0: budgets, recency;
-   0.15.0: refill in the same tick). The tick produced F7, F33 and F34, and
-   F33 is still open because its fix is a choice of policy. The ARCHITECTURE
-   "Planned Features" list includes custom archival and scoring algorithms;
-   a pluggable scorer is only safe if the tick's guarantees hold for any
-   scorer. **Highest value:** properties proved here protect every future
-   retune, not only today's numbers.
-2. **Delivery and cross-session awareness.** Every new caller adds a delivery
-   path: Codex (0.10), Antigravity's hook queue (0.11), paged reads (0.14),
-   REST-registered sessions (0.16), and Cursor and team memory are on the
-   planned list. F13–F16 and F38 broke one rule (a reply's effects land only
-   when the reply is delivered), F35–F37 another (each change is announced
-   once, and only when it is a write). **High value:** those rules, written
-   once as a contract, are what each new adapter has to meet.
+   They are the first users of the delivery promises (P3, P5). Team memory
+   is planned as a separate instance with its own storage root, using locked
+   nodes and extension fields, with sync between instances later. That
+   weighs on durability (P4) and stale views (P7). Antigravity leaving
+   experimental is a loose end; Cursor comes later.
 3. **Lifecycle, dispatch, credits, persistence.** Most findings here are
-   fixed, and none of the planned features above depends on new guarantees
-   here. **Moderate value:** keep the models
-   running in CI so a later change that breaks them is noticed; no proofs.
-4. **I/O glue: MCP plumbing, REST routing, hooks, installers.** **Low
-   value:** formalising them costs much and catches little. Out of scope.
+   fixed. Their reproductions run in CI (step 3) so a later change that
+   breaks them is noticed. No proofs.
+4. **I/O glue: MCP plumbing, REST routing, hooks, installers.** Out of
+   scope.
 
-## 3. The steps
+## 3. The plan, in order
 
-Each step lists what it builds, what it proves or catches, and the release
-rule it falls under (RELEASING.md). Steps 1–3 change no server behaviour (step 3
-adds tests only) and fit any patch release ("tests and CI").
+### Step 1 — Check the merged 0.17 tick
 
-### Step 1 — A Lake package and one shared search
+#66 and #67 both edit `Compactor.rebalance`: #66 the active list, #67 the
+swap loop. Nobody has searched the merged tick. This goes before the 0.17
+release PR, on its own branch.
 
-- `formal/lakefile.lean` and a small library (working name `KgFormal`) holding
-  the search loop, the trace printer and the report format that the 14 models
-  now copy.
-- Move models onto it **one at a time**. A move is done when the model prints
-  the same results as its committed `evidence/*.log`. A model that resists is
-  left as it is; nothing forces a big-bang migration.
-- Shared domain types (levels, node ids, sessions, versions) are extracted
-  only when two models need the same one. No upfront ontology.
+- Merge both branches. Rebalance keeps both changes: locked nodes are left
+  out of `active`, and each swap is judged after it is made.
+- Add a v3 generator to `tick_search.py` with a locked share (none, some,
+  over budget). Run `store v1|v2|v3` on the merge through `KG_SERVER=`.
+  Check C1, C2 and B1–B5. B1, B2 and B4 take the locked exception
+  deliberately: an over-budget locked share is expected, not a breach.
+- Add a `locked` flag to `Compaction.lean` and re-run its variants.
+- Report as a PR against the merge, or as a comment on #66 and #67 if
+  nothing breaks. A real finding gets an F-number and a repro, as usual.
 
-*Catches:* nothing new. It is the base every later step builds on, and the
-point where the toolchain is chosen (Q6).
+### Step 2 — The promises, prose only
 
-### Step 2 — Models in CI with expected outcomes
-
-- Each model declares what it expects per property and variant: `holds`, or
-  `counterexample` while a finding is open (F33, F38).
-- A `formal` CI job runs the fast models and fails on any change of outcome.
-  The compaction search (most of `run_all.sh`'s ~30 minutes) runs in a
-  reduced scope in CI and in full by hand.
-- This closes the second item of the README's "Open work".
-
-*Catches:* a model that no longer builds, or a fix in a model that silently
-changed an outcome. It does not yet catch code drift; that is step 3.
-
-### Step 3 — Model traces as Python fixtures (the drift guard)
-
-The model should check the code, not only the reverse. The cheapest way:
-
-- A model writes its trajectories (initial state, steps, final state) as JSON
-  fixtures under `knowledge-graph/server/tests/fixtures/`.
-- A Python test replays each fixture against the real code and asserts the
-  same states. `compaction/repro/repro_tick.py` already does this by hand for
-  the counterexamples; this makes it systematic and covers the passing
-  traces too.
-- The fixtures are committed, so the ordinary test job needs no Lean. When the
-  Python changes behaviour, the test fails, and the fix is either the code or
-  the model, regenerated in the same PR.
-
-Start with the compaction tick: it is deterministic, so a trace is just a
-sequence of states. Concurrency models follow only where a reproduction
-already drives the real code through a stubbed interleaving (writes,
-sessions, delivery).
-
-*Catches:* drift in both directions, on every PR, at the cost of a normal
-test.
-
-### Step 4 — The first proof: F33, and whether the tick settles
-
-F33 is the right pilot. It is small and already modelled, its decision is
-still open, and FINDINGS.md lays out three options. Proofs settle exactly the
-question the options leave open:
-
-- **Option 2** (a swap is kept only if the summed active score rises by the
-  margin) terminates on any graph. That argument does not depend on the score
-  values. It holds for **any** score function, which is the guarantee a
-  pluggable scorer needs. A Lean theorem can state it once, over an abstract
-  score function, with no floating point involved.
-- **Option 1** (judge the swap after it) has no counterexample within the
-  bounds but no termination argument. Either a proof appears or the search
-  widens until it finds a cycle.
-- **The whole tick, not only rebalance.** The option-2 argument covers
-  rebalance alone. Compaction and refill run in the same tick and can lower
-  the measure. "An idle graph settles" is the property users notice (no file
-  rewritten every 30 seconds), and it is the theorem worth having. If it
-  fails, the failing trace is the next finding.
-
-Lean's `Float` is opaque to proofs. The theorems therefore work over an
-abstract ordered score; the executable model keeps IEEE doubles for its
-comparison with Python (step 3).
-
-The F33 fix itself is a scoring change, so it ships in a minor release. Before
-release it is replayed with `python -m eval` on copies of real graphs, as
-recent scoring changes were. The two tools answer different questions. The
-proof says the tick cannot misbehave; the replay says whether it ranks well.
-
-*Decision point after step 4:* was the proof affordable? If proving one
-property of a 400-line Python module took more than a few focused sessions,
-steps 5 and 6 shrink to prose and model checking.
-
-### Step 5 — A spec: what the system promises
-
-One short, numbered list of promises, prose first. Each promise names the
-models and tests that check it. A sketch of the first entries:
+One page, in its own file. Each promise names the model, repro or test that
+checks it, and one line names the planned callers or features from section 2
+that touch it. The list to start from:
 
 - **P1 Budgets.** After a tick, a level renders within its budget unless
-  every remaining active node is in the fresh tier.
+  every remaining active node is locked or in the fresh tier.
 - **P2 Settling.** An idle graph reaches a state that further ticks leave
   unchanged.
 - **P3 Effects on delivery.** A reply's effects (seen, read, promoted,
@@ -173,99 +107,106 @@ models and tests that check it. A sketch of the first entries:
   push dropped.
 - **P6 Maintenance is not use.** A maintenance session's reads and writes
   never count as use.
+- **P7 Stale views.** A write built on a stale or partial view never drops
+  content the writer did not see (F11). Sync between instances will rely on
+  this.
+- **P8 Locks.** A locked node is never archived, orphaned or deleted, and
+  never changed through MCP.
 
-Lean formalisation follows the prose only where a proof is planned (P1 and P2
-after step 4). The prose alone already does architecture work. A new adapter
-(Cursor), a pluggable scorer or team memory starts by saying which promises
-it keeps, and a design that cannot keep one is visible before any code. F38
-is a live example: it is a P3/P5 conflict on the hook path, and its options
-are choices of which promise to weaken.
+**F38** is decided together with threads, since both live on the hook path.
+For that decision the promise file states, for each of F38's options (a)–(e),
+which of P3 and P5 it weakens. The claim that no hook-side rule without an
+acknowledgement keeps both under a client timeout is checked by a bounded
+enumeration of hook-side policies only if that is cheap. Otherwise it stays
+prose, marked as inference.
 
-### Step 6 — A checked core, and optimisation behind it (conditional)
+### Step 3 — CI: the Python reproductions first
 
-This is lean-zip's pattern at this project's scale, and it starts only if
-steps 3–4 showed value.
+The reproductions drive the real code, so they are the actual drift guard,
+and most are fast and deterministic.
 
-- **Reference and fast implementation.** A pure function gets a reference
-  definition in Lean, with its properties proved, and the Python version is
-  checked against it by the step 3 fixtures. An optimisation then has a
-  ratchet: it may change the code freely, as long as the fixtures and proofs
-  still pass. FINDINGS.md already lists candidates, and the ones a
-  reference would protect are pure:
-  - `file_recall._rank` scores the whole graph under the lock on each tool
-    event with matches; an incremental ranker must equal the full one.
-  - "Render equals charge" (ARCHITECTURE: the estimator measures the exact
-    strings `kg_read` renders) is a theorem candidate, `estimate = len(render)`;
-    refill's off-by-one residual in FINDINGS.md lives here.
-- **Concurrency optimisations are modelled first.** Moving blocking store
-  calls (lock plus `fsync`) off the event loop is the largest performance
-  candidate, and it also shortens the window behind F38. It is a change to
-  locking, so it is modelled before it is built, as the F6 subscriptions
-  were.
-- **Shipping Lean in the product** (a compiled core called from Python, or a
-  Lean server) stays out of scope here. It changes packaging from one Python
-  wheel to per-platform binaries. It is reconsidered only if a reference
-  implementation turns out faster than the Python it checks (Q4).
+- A `formal` workflow runs the reproductions on PRs that touch
+  `knowledge-graph/server/**`.
+- The Lean models run only on changes under `formal/**` and on manual
+  dispatch.
+- Each reproduction and model gets an expected-outcomes file. The job is
+  report-only until it has been green twice.
 
-## 4. Lean at the level of decisions
+This closes the second item of the README's "Open work".
 
-Lean does not pick the best design. It checks claims about candidates, and
-that turns several kinds of architectural question into ones with firm
-answers:
+### Step 4 — Tick properties as a seeded pytest
 
-- **Candidates as variants.** Write each option as a variant of one model,
-  state the required properties, and let the search or a proof eliminate
-  options. The compaction model's `code`/`post`/`pot` variants already do
-  this informally. What remains after elimination is a judgement, made with
-  replay numbers, not a guess.
-- **Impossibility results.** A proof that no policy of a given shape can keep
-  two promises at once ends a search for a design that cannot exist. F38's
-  options are a candidate: plausibly no hook-side rule without an
-  acknowledgement keeps both P3 and P5 under a client timeout (inference, to
-  be checked).
-- **Optimal only relative to a stated objective.** A proof can show that a
-  policy minimises writes per tick, or never leaves fillable headroom, under
-  stated assumptions. Choosing the objective, and judging simplicity, stays
-  with the maintainer.
+No exact-state traces of the tick are committed: every legitimate retune
+would break them, so they would flag changes rather than bugs. Instead:
 
-The proposed habit: a design decision that touches a promise gets a short
-model before code, as F6 did. That model records the decision: the options,
-the property each one breaks, and the choice.
+- `tick_search.py`'s checks (C1, C2, B1–B5) become a seeded, bounded pytest:
+  a few hundred graphs, seconds to run, asserting properties, not states.
+- "Render equals charge" (the estimator measures the exact strings
+  `kg_read` renders) gets a Python property test of the estimator against
+  `render`. No Lean.
+- Trace fixtures are kept only for discrete concurrency reproductions that
+  are not already regression tests. `test_races_and_guards.py` and others
+  already cover many.
 
-## 5. Not proposed
+### Step 5 — The F33 proof pilot, time-boxed to about two sessions
 
-- Rewriting the server in Lean.
-- Proofs about I/O, hooks, MCP or REST plumbing.
-- Proofs about floating-point arithmetic.
-- Turning every existing model into proofs. Bounded search stays the tool for
-  interleavings; proofs are for the deterministic core.
+1. Option 2 terminates over an abstract ordered score: a swap is kept only
+   if a bounded measure rises by the margin, so no sequence of swaps can
+   cycle.
+2. The whole idle tick settles under option 2, sequenced as in
+   `_maybe_compact` (compact, refill, rebalance, orphan) and with locks.
+   Compaction and refill can lower the measure, so this is the property
+   that matters and the one that may fail. A failure is a trace, and the
+   trace is a finding.
 
-## 6. Costs and risks
+The theorems work over an abstract score, never Lean's `Float`, which proofs
+cannot see into. The result goes to the F33-residual decision, together with
+a `tick_search` run of option 2 on the real code.
 
-- **Proof effort is unknown here** until step 4 measures it, which is why
-  step 4 ends in a decision point.
-- **Toolchain churn.** Lean releases roughly monthly. Pinning in
-  `lean-toolchain` contains it, but every bump has to rebuild every model.
-- **CI time.** A Lean toolchain install plus the fast models adds a job.
-  Fixtures (step 3) keep the main test job free of Lean.
-- **Two sources of truth** during step 6, until the fixtures tie them
-  together. Steps 3 and 6 must land together for any module they cover.
+**Decision point.** If the two sessions are not enough, the line stops at
+model checking, and that is recorded here.
 
-## 7. Open questions
+### Step 6 — A Lake package, only where step 5 needs one
 
-- **Q1** Which planned releases touch scoring, budgets or compaction next?
-  The F33 work (step 4) should land before or with that release, not after.
-- **Q2** Are pluggable scoring and team memory still planned? They decide
-  whether P1/P2 must hold for any scorer (proof over an abstract score), and
-  how much weight P4/P5 deserve.
-- **Q3** Is Cursor, or Antigravity leaving experimental, next among the
-  adapters? Either would be the first user of the delivery contract (P3).
-- **Q4** Is shipping compiled Lean in the product ever on the table, or is
-  Lean strictly a development tool here?
-- **Q5** Should F38 be decided through step 5 (as a promise conflict), or
-  separately and sooner?
-- **Q6** Toolchain: models run on `v4.34.1`. Stay there, or move to a newer
-  release for step 4's proofs? leanin's README notes that `Std.WP`, its
-  weakest-precondition framework, first appears in 4.35.
-- **Q7** Is the order right (1 → 2 → 3 → 4, then 5 and 6 as earned), and is
-  step 3 or step 4 the one to start with if only one fits the next release?
+Shared code is extracted when step 5 needs to import it. The 14 existing
+models are not migrated for their own sake.
+
+## 4. Models before designs, not ahead of them
+
+A design that touches a promise gets a short model before its code, as the
+editor subscriptions did (F6) and as locking changes already do. Models are
+not written ahead of the designs. The next targets, each handed over when its
+design exists:
+
+- the compose endpoint's effects: does a header-less compose mark anything
+  seen, and for whom?
+- the thread scenarios;
+- the sync API between instances.
+
+What models can and cannot do for a decision: they eliminate options that
+break a stated promise, and occasionally show that no option of a given shape
+keeps two promises at once. Choosing among the options that remain stays a
+judgement, informed by replays (`python -m eval`) where ranking is involved.
+
+## 5. Decided against
+
+- **Lean in the product.** Lean stays a development tool. The product ships
+  as one Python wheel, and Windows and macOS are not fully supported yet. No
+  reference implementations in Lean, no compiled core.
+- **Rewriting or proving the I/O layer:** MCP, REST, hooks, installers.
+- **Proofs about floating-point arithmetic.**
+- **Exact-state trace fixtures for the tick** (see step 4).
+- **Migrating every model to shared code** (see step 6).
+- **Toolchain bumps without a cause.** The models stay on `v4.34.1`. Proofs
+  over an abstract ordered score should not need `Std.WP`. The toolchain is
+  bumped only when a concrete proof needs it, in a PR of its own.
+
+## 6. Prior art
+
+[lean-zip](https://github.com/kim-em/lean-zip) ships the code its theorems
+are about: a verified DEFLATE whose round-trip proof gates every
+optimisation. [leanin](https://github.com/scidonia/leanin) writes a
+concurrency runtime in Lean and proves its model against stated
+specifications of the native operations. This plan takes from them the
+habit of stating a property once and letting it gate later change, not
+their choice to ship Lean.
