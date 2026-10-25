@@ -36,7 +36,7 @@ path = "server/version.py"
 # the plugin from that same directory.
 [tool.hatch.build.targets.wheel]
 only-include = [
-    "cli", "server", "chores", "hooks", "skills", "rules", "visual-editor",
+    "cli", "server", "chores", "hooks", "skills", "rules", "upgrade-notes", "visual-editor",
     ".claude-plugin", ".mcp.json", "plugin.json", "hooks.json",
     "mcp_config.json", "README.md", "ANTIGRAVITY.md", "LICENSE",
 ]
@@ -49,7 +49,7 @@ exclude = [
 # or test tree must never ship.
 [tool.hatch.build.targets.sdist]
 only-include = [
-    "cli", "server", "chores", "hooks", "skills", "rules", "visual-editor",
+    "cli", "server", "chores", "hooks", "skills", "rules", "upgrade-notes", "visual-editor",
     ".claude-plugin", ".mcp.json", "plugin.json", "hooks.json",
     "mcp_config.json", "README.md", "ANTIGRAVITY.md", "LICENSE", "pyproject.toml",
 ]

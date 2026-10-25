@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Added
+- **Updates announce themselves.** The server reads the latest kg-memory version from PyPI once a day (the request carries nothing about you; `KG_UPDATE_CHECK=0` turns it off). When a newer release exists, or the Claude Code plugin updated itself ahead of the server, the session-start preload carries one line saying so, at most once a day per project, and the agent offers the update. Updating stays your decision.
+- **`kg update --check` says whether now is a good moment.** It lists the versions (this kg, the server, each plugin, the latest release) and the install kind, what a server restart would interrupt (sessions active in the last ten minutes, a maintenance run), whether the storage has git history to return to, and what to do afterwards, and ends with a verdict: safe now, or better later and why. It changes nothing. `kg doctor` names a newer release too.
+- **Upgrade notes for the agent.** A release that changes how you work ships a short note written to the agent. The first session after an update receives every note since the version this memory last saw, once, in order.
+
 ## [0.16.0] - 2026-10-18
 
 Memory for callers outside the usual session. A git worktree now shares its main checkout's memory instead of starting empty; `KG_HOOKS=off` keeps the memory out of a scripted run; and a program that composes its own context can open a session by REST, naming itself and what it already showed the model.

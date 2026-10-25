@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 
 from core.constants import project_namespace, resolve_project_root
 from core.exceptions import KGError, NodeNotFoundError, SessionNotFoundError
+from core.updates import session_notice
 from core.utils import GIST_SCAN_LIMIT, validate_node_id
 from .security import origin_allowed
 
@@ -130,14 +131,17 @@ def create_rest_api(store, session_manager, connection_manager, version: str) ->
     @rest_api.get("/api/session_bootstrap")
     async def rest_session_bootstrap(project_path: str, claude_session_id: str | None = None,
                                      source: str | None = None,
-                                     transcript_path: str | None = None):
+                                     transcript_path: str | None = None,
+                                     plugin_version: str | None = None):
         """Session-start memory preload, used by the SessionStart hook.
 
         Registers a session and returns a compact core render capped at
         the harness profile's preload limit — hook additionalContext stays inline
         only up to ~10K (measured per client; tool results tolerate 40-50K), so the preload
         carries the top-scored gists and the loud kg_read renders the rest
-        without repeating them. "context" is the final injectable text
+        without repeating them. A fresh preload opens with the update line
+        and upgrade notes when there are any (core/updates.py); the hook sends
+        its plugin's version for that. "context" is the final injectable text
         (instruction header included); "text" is the graph body alone for
         older hooks that compose their own header. The rendered ids seed the
         session's preloaded + seen sets — that is what kg_read dedups against.
@@ -219,8 +223,11 @@ def create_rest_api(store, session_manager, connection_manager, version: str) ->
                 debt = store.maintenance_debt(session_id)
             except Exception:
                 debt = None
+            notice = session_notice(session_manager.get_project_path(session_id) or "user",
+                                    version, plugin_version)
             result = build_bootstrap(graphs, scores, session_id, debt=debt,
-                                     budget=profile.preload_limit, measure=profile.measure)
+                                     budget=profile.preload_limit, measure=profile.measure,
+                                     notice=notice)
             session_manager.set_preloaded(session_id, result["shown_ids"])
             session_manager.mark_seen(session_id, result["shown_ids"], via="preload",
                                       at=viewed_at)

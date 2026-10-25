@@ -12,6 +12,9 @@ This project is pre-1.0. Security fixes are applied to the latest version only.
 
 The knowledge-graph MCP server is designed to run locally on the user's own machine,
 bound to `127.0.0.1` by default (`KG_HTTP_HOST` can change this). It is not intended to be exposed to the network or the internet.
+Its one outbound request is a daily read of `https://pypi.org/pypi/kg-memory/json`
+to learn the latest version; it sends nothing about the user, and
+`KG_UPDATE_CHECK=0` turns it off.
 
 **The trust boundary is "processes on this machine."** There is no authentication:
 any local process can read and modify the graphs through the MCP or REST endpoints.

@@ -231,13 +231,16 @@ def handle_event(store, manager, event_name, payload):
             manager.reset_context(sid)
 
     if event_name != "PostToolUse" and "preloaded_ids" not in data and not manager.has_pending_context(sid, "preload"):
+        from core.updates import session_notice
+        from version import __version__
         from .read_format import build_bootstrap
         at = time.time()
         graphs = store.read_graphs(sid)
         scores = store.scores_for_read(sid)
         result = build_bootstrap(graphs, scores, sid, debt=store.maintenance_debt(sid),
                                  budget=harness.profile(harness.ANTIGRAVITY).preload_limit,
-                                 measure=harness.profile(harness.ANTIGRAVITY).measure)
+                                 measure=harness.profile(harness.ANTIGRAVITY).measure,
+                                 notice=session_notice(cwd or "user", __version__))
         view = DeferredView(manager)
         view.set_preloaded(sid, result["shown_ids"])
         view.mark_seen(sid, result["shown_ids"], via="preload", at=at)

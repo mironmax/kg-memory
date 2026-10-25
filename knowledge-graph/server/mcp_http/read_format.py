@@ -246,7 +246,8 @@ def build_full_read(graphs: dict, scores: dict, session_id: str | None, preloade
 
 
 def build_bootstrap(graphs: dict, scores: dict, session_id: str, debt: dict | None = None,
-                    budget: int = CLAUDE_PRELOAD_LIMIT, measure=utf16_units) -> dict:
+                    budget: int = CLAUDE_PRELOAD_LIMIT, measure=utf16_units,
+                    notice: str = "") -> dict:
     """Render the session-start preload: a compact core under `budget`, as the
     client counts length (`measure`, from the harness profile).
 
@@ -258,9 +259,10 @@ def build_bootstrap(graphs: dict, scores: dict, session_id: str, debt: dict | No
     render == charge covers every character the hook emits), the graph body
     alone (for older hooks that compose their own header), the ids actually
     shown (they seed the session's preload/seen sets), and counts for the
-    hook's user-visible one-liner.
+    hook's user-visible one-liner. `notice` (core/updates.py: the update line,
+    upgrade notes) goes first and is charged like the header.
     """
-    header = (
+    header = notice + (
         "KG MEMORY PRELOADED — compact core ONLY: a PARTIAL view holding the top-scored "
         "nodes of both graphs ('…N more not shown' lines below count what was dropped). "
         f"session_id: {session_id} (pass it to every kg_* call). "

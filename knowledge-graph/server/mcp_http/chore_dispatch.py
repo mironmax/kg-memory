@@ -129,6 +129,11 @@ def _enabled(cfg: dict) -> bool:
     return bool(cfg.get("enabled"))
 
 
+def running() -> bool:
+    """A chore or pass process is running now."""
+    return _running.is_set()
+
+
 def enabled() -> bool:
     """Cheap inline gate for the request path — no disk beyond an mtime stat.
 

@@ -72,6 +72,12 @@ def version_key(text: str) -> list[int]:
     return [int(x) if x.isdigit() else 0 for x in text.split(".")]
 
 
+def latest_release() -> str | None:
+    """The latest release the server's daily PyPI read saw (server/core/updates.py
+    keeps it in the storage root; kg only reads it)."""
+    return load_json(kg.STORAGE_ROOT / "updates.json").get("latest")
+
+
 def in_checkout() -> bool:
     return (kg.ROOT.parent / ".git").exists()
 
