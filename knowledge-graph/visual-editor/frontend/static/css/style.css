@@ -969,6 +969,59 @@ html, body {
     border: 1px solid rgba(74, 85, 96, 0.4);
 }
 
+.badge-locked {
+    background: rgba(234, 208, 148, 0.12);
+    color: var(--accent-gold);
+    border: 1px solid rgba(234, 208, 148, 0.35);
+}
+
+.badge-locked .icon {
+    width: 0.6875rem;
+    height: 0.6875rem;
+    vertical-align: -0.0625rem;
+}
+
+.lock-help {
+    margin: 0.25rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--text-secondary);
+}
+
+.tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.tag {
+    padding: 0.125rem 0.4375rem;
+    border-radius: 0.25rem;
+    background: var(--bg-light);
+    border: 1px solid var(--border-color);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.75rem;
+    color: var(--text-primary);
+}
+
+.field-list {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.25rem 0.75rem;
+    margin: 0.5rem 0 0.625rem;
+    font-size: 0.8125rem;
+}
+
+.field-list dt {
+    color: var(--text-secondary);
+}
+
+.field-list dd {
+    margin: 0;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+
 .badge-orphaned {
     background: rgba(106, 117, 128, 0.2);
     color: var(--node-orphan);

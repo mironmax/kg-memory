@@ -9,6 +9,7 @@
 // ============================================================================
 
 const ICONS = {
+    lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
     edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
     pen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
@@ -1601,7 +1602,9 @@ function buildNodeScoreContent(node) {
             <dd>${data.usefulness.endorsements} explicit endorsements, decayed with a ${data.usefulness.half_life_days}-day half-life. Each contributes 0.5<sup>age / ${data.usefulness.half_life_days}</sup>.</dd>
         </dl></details>
         ${data.fresh.protected ? `<p class="score-note">Fresh tier: one of the ${data.fresh.tier_size} newest nodes, kept active until newer work pushes it out.</p>` : ''}
-        <p class="score-note">Higher scores stay longer. Graph size and available context also determine archival and refill.</p>`;
+        <p class="score-note">${node.locked === true
+            ? 'Locked: this node stays active whatever its score. Its score still ranks the other nodes.'
+            : 'Higher scores stay longer. Graph size and available context also determine archival and refill.'}</p>`;
 }
 
 async function fetchNodeScore(node) {
@@ -1628,6 +1631,55 @@ async function fetchNodeScore(node) {
     if (state.selectedNode?.id === node.id && state.selectedNode.level === node.level) {
         const content = document.getElementById('node-score-content');
         if (content) content.innerHTML = buildNodeScoreContent(node);
+    }
+}
+
+// Keys the panel shows elsewhere or that the server owns; the rest are a
+// module's extension fields (server core.fields), shown read-only.
+const NODE_PANEL_KEYS = new Set(['id', 'gist', 'notes', 'touches', 'tags', 'locked',
+    'level', 'archived', 'orphaned', 'x', 'y', 'vx', 'vy', 'fx', 'fy', 'index']);
+
+function buildFieldsSection(node) {
+    const tags = Array.isArray(node.tags) ? node.tags : [];
+    const extra = Object.entries(node)
+        .filter(([k]) => !k.startsWith('_') && !NODE_PANEL_KEYS.has(k))
+        .sort(([a], [b]) => a.localeCompare(b));
+    if (!tags.length && !extra.length) return '';
+    const tagsHtml = tags.length
+        ? `<div class="detail-field"><div class="detail-field-header"><span class="detail-label">Tags</span></div>
+               <div class="tag-list">${tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div></div>`
+        : '';
+    const extraHtml = extra.length
+        ? `<dl class="field-list">${extra.map(([k, v]) =>
+              `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(typeof v === 'string' ? v : JSON.stringify(v))}</dd>`).join('')}</dl>`
+        : '';
+    return `<div class="detail-section"><h3>Fields</h3>${tagsHtml}${extraHtml}</div>`;
+}
+
+async function toggleNodeLock() {
+    const node = state.selectedNode;
+    if (!node) return;
+    const lock = node.locked !== true;
+    try {
+        const response = await fetch(`${CONFIG.apiBaseUrl}/api/nodes`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                level: state.graphLevel,
+                id: node.id,
+                gist: node.gist,
+                fields: {locked: lock ? true : null},
+                session_id: state.sessionId,
+                ...projectPathBody()
+            })
+        });
+        if (!response.ok) throw new Error(await errDetail(response));
+        if (lock) node.locked = true; else delete node.locked;
+        showToast(lock ? 'Locked' : 'Unlocked', 'success');
+        renderNodeDetails(node);
+        loadGraph();
+    } catch (error) {
+        showToast(`Failed: ${error.message}`, 'error');
     }
 }
 
@@ -1719,7 +1771,17 @@ function renderNodeDetails(node) {
                         <span class="badge badge-${node.level}">${node.level}</span>
                         ${node.archived ? '<span class="badge badge-archived" style="margin-left:0.25rem">Archived</span>' : ''}
                         ${node.orphaned ? '<span class="badge badge-orphaned" style="margin-left:0.25rem">Orphaned</span>' : ''}
+                        ${node.locked === true ? `<span class="badge badge-locked" style="margin-left:0.25rem">${icon('lock','sm')} Locked</span>` : ''}
                     </div>
+                </div>
+                <div class="detail-field">
+                    <div class="detail-field-header">
+                        <span class="detail-label">Agent edits</span>
+                        <button class="btn btn-xs" id="lock-toggle" onclick="toggleNodeLock()">${icon('lock','sm')} ${node.locked === true ? 'Unlock' : 'Lock'}</button>
+                    </div>
+                    <p class="lock-help">${node.locked === true
+                        ? 'Agents can read this node but not edit, delete or rename it, and it always stays active.'
+                        : 'Agents can edit, delete or rename this node. Lock it to keep a rule you wrote as it is.'}</p>
                 </div>
             </div>
 
@@ -1760,6 +1822,8 @@ function renderNodeDetails(node) {
                     ${touchesHtml}
                 </div>
             </div>
+
+            ${buildFieldsSection(node)}
 
             ${buildConnectionsSection(node)}
         </div>
@@ -2023,6 +2087,7 @@ window.startInlineEdit = startInlineEdit;
 window.cancelInlineEdit = cancelInlineEdit;
 window.saveInlineEdit = saveInlineEdit;
 window.selectNodeById = selectNodeById;
+window.toggleNodeLock = toggleNodeLock;
 
 // ============================================================================
 // Entry Point

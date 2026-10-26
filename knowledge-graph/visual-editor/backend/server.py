@@ -287,6 +287,8 @@ class NodeCreate(BaseModel):
     # project_path registered, so writes to project graphs need this (same
     # addressing as read/recall/delete).
     project_path: str | None = None
+    # `locked` and extension fields; null removes one (server core.fields).
+    fields: dict | None = None
 
 class EdgeCreate(BaseModel):
     level: str
