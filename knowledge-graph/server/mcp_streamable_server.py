@@ -39,10 +39,11 @@ MAINTAIN_LEVEL_DOC = (
     "preloaded, searched or rendered with the graphs; write there only from a "
     "maintenance chore or pass."
 )
-from mcp_http import harness
+from mcp_http import chore_dispatch, harness
 from mcp_http.security import request_refusal
 from core.autocommit import AutoCommitter
 from core.fields import load_schema, tool_params
+from core.updates import ReleaseChecker, read_state as release_state
 from core.exceptions import (
     KGError,
     NodeConflictError,
@@ -933,6 +934,10 @@ async def main():
     autocommitter = AutoCommitter(config.storage_root)
     autocommitter.start()
 
+    # Daily PyPI read for the update line (KG_UPDATE_CHECK=0 disables).
+    release_checker = ReleaseChecker()
+    release_checker.start()
+
     # Create Streamable HTTP session manager
     mcp_session_manager = StreamableHTTPSessionManager(
         app=mcp_server,
@@ -968,12 +973,17 @@ async def main():
                 return
 
         if path == "/health":
-            # MCP health check (simple)
+            # Liveness, plus what `kg update --check` weighs: what a restart
+            # would interrupt, and the latest release the daily check saw.
             response = JSONResponse({
                 "status": "ok",
                 "version": __version__,
                 "transport": "streamable-http",
                 "active_sessions": session_manager.count(),
+                "recent_sessions": session_manager.count_active_since(time.time() - 600),
+                "chore_running": chore_dispatch.running(),
+                "unsaved_graphs": sum(1 for dirty in list(store.dirty.values()) if dirty),
+                "latest_release": release_state().get("latest"),
                 "loaded_graphs": len(store.graphs)
             })
             await response(scope, receive, send)
@@ -1001,6 +1011,7 @@ async def main():
         # Shutdown (idempotent — the post-serve fallback may call it again).
         # Order matters: flush the store to disk first, then make a final
         # best-effort commit so it captures the flushed state.
+        release_checker.stop()
         if store:
             store.shutdown()
         autocommitter.stop(final_commit=True)

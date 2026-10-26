@@ -154,6 +154,7 @@ The server reads a few tunables from environment variables. Where to set them de
 | `KG_CHORES` | unset | `1` or `0` overrides `"enabled"` in `chores.json` (background upkeep) |
 | `KG_BUDGET_NOTICES` | `1` | `0` turns budget notices off (or `"budget_notices": false` in `chores.json`) |
 | `KG_HOOKS` | unset | `off` in a run's environment silences every plugin hook in that run: no preload, no recall, no capture nudges, no upkeep dispatch. For scripted or headless runs that load the plugin but want no memory |
+| `KG_UPDATE_CHECK` | `1` | `0` stops the daily read of the latest version from PyPI, the server's only outbound request. It sends nothing about you; it is how the session-start preload learns that an update exists |
 | `KG_LOG_LEVEL` | `INFO` | Server log level |
 | `EDITOR_PORT` | `8766` | Visual editor port |
 

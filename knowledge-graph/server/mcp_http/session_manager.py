@@ -765,6 +765,11 @@ class HTTPSessionManager:
         """Return number of active sessions."""
         return len(self._sessions)
 
+    @_locked
+    def count_active_since(self, cutoff: float) -> int:
+        """Sessions with any activity since `cutoff` (epoch seconds)."""
+        return sum(1 for data in self._sessions.values() if (data.get("last_activity") or 0) >= cutoff)
+
     # ========================================================================
     # Session persistence (survive server restarts)
     # ========================================================================
