@@ -37,7 +37,8 @@ cross-session awareness (F35–F38). Left:
 [PROPOSAL.md](PROPOSAL.md) is the plan for what follows: a check of the
 merged 0.17 tick, a written list of what the system promises, the
 reproductions in CI, tick properties as a seeded test, and a time-boxed first
-proof (F33).
+proof (F33). [PROMISES.md](PROMISES.md) states what the server promises and
+what checks each promise.
 
 ## Method
 

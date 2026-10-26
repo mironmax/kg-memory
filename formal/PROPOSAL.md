@@ -90,7 +90,7 @@ release PR, on its own branch.
 
 ### Step 2 — The promises, prose only
 
-One page, in its own file. Each promise names the model, repro or test that
+One page, in its own file: [PROMISES.md](PROMISES.md). Each promise names the model, repro or test that
 checks it, and one line names the planned callers or features from section 2
 that touch it. The list to start from:
 
