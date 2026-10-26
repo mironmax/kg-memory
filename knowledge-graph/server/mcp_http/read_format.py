@@ -18,12 +18,18 @@ together, hubs first, each edge cited once at its first-encountered endpoint)
 — the same plan the estimator measures, so render == charge exactly.
 """
 
+import json
 import time
 
 from core.constants import CLAUDE_PRELOAD_LIMIT, CREDITED_FIELD, READ_CHAR_BUDGET, SEARCH_CHAR_BUDGET
 from core.debt import debt_line
+from core.fields import LOCKED_FIELD, TAGS_FIELD, is_locked
 from core.render import plan_level, render_edge_line
 from mcp_http.harness import utf16_units
+
+# Keys a full read shows on their own lines; any other non-underscore key is an
+# extension field (core.fields).
+_NODE_CORE_KEYS = {"id", "gist", "notes", "touches", TAGS_FIELD, LOCKED_FIELD}
 
 
 def _health_line(plan: dict) -> str:
@@ -246,7 +252,8 @@ def build_full_read(graphs: dict, scores: dict, session_id: str | None, preloade
 
 
 def build_bootstrap(graphs: dict, scores: dict, session_id: str, debt: dict | None = None,
-                    budget: int = CLAUDE_PRELOAD_LIMIT, measure=utf16_units) -> dict:
+                    budget: int = CLAUDE_PRELOAD_LIMIT, measure=utf16_units,
+                    notice: str = "") -> dict:
     """Render the session-start preload: a compact core under `budget`, as the
     client counts length (`measure`, from the harness profile).
 
@@ -258,9 +265,10 @@ def build_bootstrap(graphs: dict, scores: dict, session_id: str, debt: dict | No
     render == charge covers every character the hook emits), the graph body
     alone (for older hooks that compose their own header), the ids actually
     shown (they seed the session's preload/seen sets), and counts for the
-    hook's user-visible one-liner.
+    hook's user-visible one-liner. `notice` (core/updates.py: the update line,
+    upgrade notes) goes first and is charged like the header.
     """
-    header = (
+    header = notice + (
         "KG MEMORY PRELOADED — compact core ONLY: a PARTIAL view holding the top-scored "
         "nodes of both graphs ('…N more not shown' lines below count what was dropped). "
         f"session_id: {session_id} (pass it to every kg_* call). "
@@ -393,6 +401,8 @@ def format_node_full(node_id: str, result: dict) -> str:
     status = ("promoted from archive" if result.get("promoted", result.get("was_archived"))
               else "archived, not promoted (maintenance read)" if result.get("was_archived")
               else "active")
+    if is_locked(node):
+        status += ", locked"
     lines = [f"▸ {node_id} ({result['level']}, {status})"]
     lines.append(f"  gist: {node.get('gist', '')}")
     notes = node.get("notes") or []
@@ -402,6 +412,14 @@ def format_node_full(node_id: str, result: dict) -> str:
     touches = node.get("touches") or []
     if touches:
         lines.append("  touches: " + " · ".join(touches))
+    tags = node.get(TAGS_FIELD) or []
+    if tags:
+        lines.append("  tags: " + " · ".join(tags))
+    extra = {k: v for k, v in node.items()
+             if not k.startswith("_") and k not in _NODE_CORE_KEYS}
+    if extra:
+        lines.append("  fields: " + ", ".join(f"{k}={json.dumps(v, ensure_ascii=False)}"
+                                              for k, v in sorted(extra.items())))
     credited = node.get(CREDITED_FIELD) or []
     if credited:
         days = ", ".join(time.strftime("%Y-%m-%d", time.localtime(ts)) for ts in credited)

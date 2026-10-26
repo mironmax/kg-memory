@@ -529,4 +529,11 @@ await check('Node dialogs contain keyboard focus, dismiss with Escape, and resto
     container.querySelectorAll = () => [];
 });
 
+await check('Every inline onclick handler is exported to window (app.js is a module)', () => {
+    const src = fs.readFileSync(new URL('../frontend/static/js/app.js', import.meta.url), 'utf8');
+    const handlers = new Set([...src.matchAll(/onclick="(\w+)\(/g)].map(m => m[1]));
+    const missing = [...handlers].filter(name => !src.includes(`window.${name} = ${name};`));
+    assert.deepEqual(missing, []);
+});
+
 console.log(`${passed} UI behavior checks passed (visual layout not tested).`);

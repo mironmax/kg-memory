@@ -35,9 +35,18 @@ def show(rows) -> None:
             print(f"  {MARK[state]} {detail}")
 
 
+def release_line(want: str) -> str | None:
+    latest = steps.latest_release()
+    if latest and steps.version_key(latest) > steps.version_key(want):
+        return f"kg-memory {latest} is available: `kg update --check`, then `kg update`"
+    return None
+
+
 def run() -> int:
     ctx = steps.Context()
     print(f"kg {ctx.want} — {kg.ROOT}")
+    if line := release_line(ctx.want):
+        print(f"  {line}")
     rows = survey(ctx)
     show(rows)
     problems = sum(state in (steps.FIX, steps.MANUAL) for _, state, _ in rows)
@@ -134,6 +143,90 @@ def update(after_upgrade: bool) -> int:
             print(f"  ✗ {exc}")
     print()
     return run()
+
+
+def check_update() -> int:
+    """Whether now is a good moment for `kg update`: the facts and a verdict.
+    Changes nothing."""
+    want = steps.Context().want
+    kind = steps.install_kind()
+    health = kg.health() or {}
+    latest = steps.latest_release()
+    running = health.get("version")
+    plugins = {"Claude Code": steps.find_binary("claude") and steps.claude_plugin_version(),
+               "Codex": steps.codex_binary() and steps.codex_plugin_version(),
+               "Antigravity": steps.find_binary("agy")
+               and steps.load_json(steps.AGY_PLUGIN / ".claude-plugin/plugin.json").get("version")}
+    plugins = {name: version for name, version in plugins.items() if version}
+    newer = latest if latest and steps.version_key(latest) > steps.version_key(want) else None
+
+    print("Versions")
+    print(f"  {'this kg':<20} {want} ({kind} install)")
+    print(f"  {'server':<20} {running or 'not running'}")
+    for name, version in plugins.items():
+        print(f"  {name + ' plugin':<20} {version}")
+    print(f"  {'latest release':<20} {latest or 'not known yet (the server reads PyPI once a day)'}")
+    behind = [n for n, v in plugins.items() if v != want] + (["server"] if running and running != want else [])
+    if not newer and not behind:
+        print("\nNothing to update.")
+        return 0
+
+    print("\nWhat it does")
+    if newer and kind == "checkout":
+        print(f"  this is a development checkout: `git pull` brings {newer}; `kg update` then aligns the rest")
+    elif newer and kind not in ("uv", "pipx"):
+        print(f"  kg was not installed with uv or pipx: upgrade it the way you installed it to reach {newer}")
+    elif newer:
+        print(f"  upgrades kg to {newer} ({kind}), restarts the server, updates each plugin")
+    else:
+        print(f"  brings {', '.join(behind)} to {want}")
+
+    later, unknown = [], False
+    print("\nA server restart interrupts")
+    if not running:
+        print("  nothing: the server is not running")
+    else:
+        recent = health.get("recent_sessions")
+        if recent is None:
+            print(f"  unknown: the running server ({running}) is too old to say")
+            unknown = True
+        else:
+            print(f"  {recent} session(s) active in the last 10 minutes, the asking one included; "
+                  "each reconnects on its next kg call, and a write sent during the restart fails")
+            if recent > 1:
+                later.append(f"{recent - 1} other session(s) are working")
+        if health.get("chore_running"):
+            print("  a maintenance run in progress, which loses its server")
+            later.append("a maintenance run is in progress")
+        if health.get("unsaved_graphs"):
+            print(f"  nothing lost: {health['unsaved_graphs']} graph(s) with pending writes are saved on stop")
+
+    root = kg.STORAGE_ROOT
+    print("\nStorage")
+    if (root / ".git").is_dir():
+        print(f"  {root} is versioned with git (`kg stop` commits pending changes): a point to return to")
+    else:
+        print(f"  {root} has no version history: consider `git init` there first "
+              "(README: Versioned history and external backups)")
+
+    print("\nAfterwards")
+    changing = set(plugins) if newer else set(behind)
+    if "Claude Code" in changing:
+        print("  restart Claude Code sessions to load the new plugin")
+    if "Codex" in changing:
+        print("  Codex asks to trust the changed hooks again: run /hooks in Codex")
+    if "Antigravity" in changing:
+        print("  start a new Antigravity conversation")
+    if not changing & set(plugins):
+        print("  nothing: the plugins are current")
+
+    if later:
+        print(f"\nVerdict: better later: {'; '.join(later)}.")
+    elif unknown:
+        print("\nVerdict: safe as far as kg can tell; ask whether other sessions are working.")
+    else:
+        print("\nVerdict: safe now.")
+    return 0
 
 
 def uninstall(assume_yes: bool, plan: bool) -> int:

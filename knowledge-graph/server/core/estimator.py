@@ -22,6 +22,7 @@ approximations for incremental deltas (refill's fit checks); every consumer of
 those deltas is guarded by an authoritative estimate_graph re-measure.
 """
 
+from .fields import is_locked
 from .render import (
     plan_level,
     level_body_lines,
@@ -41,7 +42,7 @@ class CharEstimator:
         Only gist counts — notes/touches are detail fetched on-demand via
         kg_read(id), not part of the active context budget.
         """
-        return len(render_active_line(node_id, node.get("gist", ""))) + 1
+        return len(render_active_line(node_id, node.get("gist", ""), is_locked(node))) + 1
 
     @staticmethod
     def estimate_archived(node_id: str) -> int:

@@ -41,3 +41,15 @@ class NodeNotArchivedError(KGError):
         self.level = level
         self.node_id = node_id
         super().__init__(f"Node '{node_id}' is not archived in {level} graph")
+
+
+class NodeLockedError(KGError):
+    """An agent tried to write, delete or rename a locked node (core.fields)."""
+    def __init__(self, level: str, node_id: str, op: str):
+        self.level = level
+        self.node_id = node_id
+        self.op = op
+        super().__init__(
+            f"Node '{node_id}' is locked: a rule the person wrote, so agents cannot {op} it. "
+            f"A person edits or unlocks it in the visual editor or over REST."
+        )

@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here.
 
+## [0.17.0] - 2026-10-26
+
+Memory you can pin, and memory that speaks. A node you lock stays as you wrote it and always in view; a storage root can declare its own node fields; and the memory now says when a newer release exists, whether now is a good moment to update, and what changed, in a note to the agent. Also fixed: two linked nodes no longer trade places on every upkeep tick, and worktree detection reads nothing outside the home folder.
+
+### Added
+- **Lock a node to keep a rule you wrote as it is.** In the visual editor, Lock on a node's details (or `"fields": {"locked": true}` on `POST /api/nodes`) stops agents and maintenance from rewriting, deleting or renaming it; they can still read it, link to it and endorse it. A locked node always stays active: compaction never archives or orphans it, and one found archived is brought back. The graph render marks it `(locked)` so an agent does not plan an edit it cannot make. Refused attempts are kept in the graph's progress slot `rejections` (the last 50). The lock guards against accidents, not against a program on your machine: REST is on localhost.
+- **A storage root can declare extra node fields.** A `fields.json` in the storage root names fields, their types (enum, number, bool, string, tags) and whether agents may write them. Declared fields are stored on the node, shown on a full node read and in the editor, and written through `POST /api/nodes` `fields`; agent fields also become `kg_put_node` parameters, and declared `tags` are searched and filter `kg_search`. Meant for modules running their own instance; a root without the file changes nothing, and its tools gain no parameters.
+- **Updates announce themselves.** The server reads the latest kg-memory version from PyPI once a day (the request carries nothing about you; `KG_UPDATE_CHECK=0` turns it off). When a newer release exists, or the Claude Code plugin updated itself ahead of the server, the session-start preload carries one line saying so, at most once a day per project, and the agent offers the update. Updating stays your decision.
+- **`kg update --check` says whether now is a good moment.** It lists the versions (this kg, the server, each plugin, the latest release) and the install kind, what a server restart would interrupt (sessions active in the last ten minutes, a maintenance run), whether the storage has git history to return to, and what to do afterwards, and ends with a verdict: safe now, or better later and why. It changes nothing. `kg doctor` names a newer release too.
+- **Upgrade notes for the agent.** A release that changes how you work ships a short note written to the agent. The first session after an update receives every note since the version this memory last saw, once, in order.
+
+### Fixed
+- **Two linked nodes no longer trade places forever.** Between the fill ceiling and the budget, the upkeep tick swaps the best archived node for the worst active one. An archived node's links count for less than an active one's, so of two linked nodes the archived one looked better connected, and the swap reversed the comparison that chose it: the pair swapped back on every tick, rewriting the graph file each time, and the preload showed a different node every 30 seconds. A swap is now kept only if the promoted node still wins after it.
+
+### Security
+- **Worktree detection reads nothing outside your home folder.** Finding a linked worktree's main checkout reads its `.git` file and the `commondir` it names. It now stops at the home folder and follows neither file when it points outside, the same boundary project roots already have.
+
 ## [0.16.0] - 2026-10-18
 
 Memory for callers outside the usual session. A git worktree now shares its main checkout's memory instead of starting empty; `KG_HOOKS=off` keeps the memory out of a scripted run; and a program that composes its own context can open a session by REST, naming itself and what it already showed the model.

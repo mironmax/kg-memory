@@ -89,7 +89,8 @@ def rank_nodes(nodes: dict, unigrams: list[str], bigrams: list[tuple[str, str]])
     fields = {
         node_id: (
             node_id.lower(),
-            node.get("gist", "").lower(),
+            # Tags weigh as the gist does: they state what the node is about.
+            " ".join([node.get("gist", "")] + list(node.get("tags") or [])).lower(),
             " ".join(node.get("notes", []) + node.get("touches", [])).lower(),
         )
         for node_id, node in nodes.items()

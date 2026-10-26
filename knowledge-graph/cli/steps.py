@@ -72,6 +72,12 @@ def version_key(text: str) -> list[int]:
     return [int(x) if x.isdigit() else 0 for x in text.split(".")]
 
 
+def latest_release() -> str | None:
+    """The latest release the server's daily PyPI read saw (server/core/updates.py
+    keeps it in the storage root; kg only reads it)."""
+    return load_json(kg.STORAGE_ROOT / "updates.json").get("latest")
+
+
 def in_checkout() -> bool:
     return (kg.ROOT.parent / ".git").exists()
 
@@ -814,9 +820,32 @@ class Storage(Step):
         root = kg.STORAGE_ROOT
         if not root.is_dir():
             return OFF, f"{root} not created yet (the first session creates it)"
+        extra = storage_extras(root)
+        if extra.startswith("!"):
+            return MANUAL, f"{root}: {extra[1:]}"
         if (root / ".git").is_dir():
-            return OK, f"{root}, versioned with git"
-        return OFF, f"{root}, no version history (README: Versioned history and external backups)"
+            return OK, f"{root}, versioned with git{extra}"
+        return OFF, f"{root}, no version history (README: Versioned history and external backups){extra}"
+
+
+def storage_extras(root: Path) -> str:
+    """', N locked node(s)' and what fields.json declares; '!<problem>' when
+    fields.json cannot be read (the server then runs without extra fields)."""
+    graphs = [root / "user.json"] + sorted(root.glob("projects/*/graph.json"))
+    locked = sum(1 for path in graphs
+                 for node in (load_json(path).get("nodes") or {}).values()
+                 if isinstance(node, dict) and node.get("locked") is True)
+    out = f", {locked} locked node(s)" if locked else ""
+    path = root / "fields.json"
+    if path.exists():
+        try:
+            declared = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(declared, dict):
+                raise ValueError("top level must be an object")
+        except (OSError, ValueError) as e:
+            return f"!fields.json unreadable ({e}); the server runs without extra node fields"
+        out += f", extra node fields: {', '.join(sorted(declared)) or 'none'}"
+    return out
 
 
 def credential_kind():

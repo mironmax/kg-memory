@@ -10,6 +10,7 @@ from .constants import (
     REBALANCE_MAX_SWAPS,
 )
 from .estimator import CharEstimator
+from .fields import is_locked
 from .render import ARCHIVED_HEADER
 from .scorer import NodeScorer
 
@@ -31,6 +32,23 @@ class Compactor:
         # every save_interval; without this the same stall logs twice a minute.
         self._stall_logged: set[str] = set()
 
+    def restore_locked(self, nodes: dict) -> list[str]:
+        """Bring every archived or orphaned locked node back to active.
+
+        Locked nodes never enter an eviction pass, so this repairs only state
+        from elsewhere: a graph written before the lock existed, or a file
+        edited by hand. Returns the restored ids.
+        """
+        restored = []
+        for nid, node in nodes.items():
+            if is_locked(node) and (node.get("_archived") or "_orphaned_ts" in node):
+                node.pop("_archived", None)
+                node.pop("_orphaned_ts", None)
+                restored.append(nid)
+        if restored:
+            logger.info(f"Restored {len(restored)} locked node(s) to active: {', '.join(sorted(restored)[:5])}")
+        return restored
+
     def compact_if_needed(self, nodes: dict, edges: dict, versions: dict, label: str = "") -> list[str]:
         """
         Archive nodes if graph exceeds its char budget, then run resurrection pass.
@@ -51,22 +69,27 @@ class Compactor:
         # Score BEFORE announcing work: a graph can sit over budget with every
         # active node in the fresh tier (its edges and anchors take the rest) —
         # that is a stall to report once, not a compaction to log every tick.
-        active_scores = self.scorer.score_all(nodes, edges, versions, include_archived=False)
+        # Locked nodes are never evicted: a graph whose locked share alone is
+        # over budget stays over budget and says so.
+        active_scores = {
+            nid: score for nid, score in
+            self.scorer.score_all(nodes, edges, versions, include_archived=False).items()
+            if not is_locked(nodes[nid])
+        }
 
         if not active_scores:
             if label not in self._stall_logged:
                 self._stall_logged.add(label)
-                active_count = sum(
-                    1 for n in nodes.values()
-                    if not n.get("_archived") and "_orphaned_ts" not in n
-                )
+                active = [n for n in nodes.values()
+                          if not n.get("_archived") and "_orphaned_ts" not in n]
+                locked = sum(1 for n in active if is_locked(n))
                 logger.info(
                     f"Graph {label or '?'} over budget ({estimated_chars} chars > {self.max_chars}) "
-                    f"but all {active_count} active nodes are in the fresh tier — "
-                    f"compaction deferred until newer work pushes one out (further ticks logged at debug)"
+                    f"but all {len(active)} active nodes are locked ({locked}) or in the fresh tier — "
+                    f"compaction deferred (further ticks logged at debug)"
                 )
             else:
-                logger.debug(f"Graph {label or '?'} still over budget, still nothing outside the fresh tier")
+                logger.debug(f"Graph {label or '?'} still over budget, nothing evictable")
             return []
 
         self._stall_logged.discard(label)
@@ -130,6 +153,10 @@ class Compactor:
                 logger.info(f"Resurrection pass: promoted {len(resurrected)} archived node(s) back to active")
 
         logger.info(f"Compaction complete: {len(archived_this_pass)} net archived, now {estimated_chars} chars")
+        if estimated_chars > self.max_chars:
+            locked = sum(1 for n in nodes.values() if is_locked(n))
+            logger.warning(f"Graph {label or '?'} still over budget ({estimated_chars} > {self.max_chars}): "
+                           f"the rest is locked ({locked} node(s)) or in the fresh tier")
         return archived_this_pass
 
     def refill_if_room(self, nodes: dict, edges: dict, versions: dict) -> list[str]:
@@ -313,7 +340,7 @@ class Compactor:
             fresh = self.scorer.fresh_ids(nodes, edges)
             active = [nid for nid, n in nodes.items()
                       if not n.get("_archived") and "_orphaned_ts" not in n
-                      and nid not in fresh and nid in scores]
+                      and nid not in fresh and nid in scores and not is_locked(n)]
             archived = [nid for nid, n in nodes.items()
                         if n.get("_archived") and "_orphaned_ts" not in n and nid in scores]
             if not active or not archived:
@@ -325,7 +352,15 @@ class Compactor:
                     break
                 nodes[worst]["_archived"] = True
                 nodes[best]["_archived"] = False
-                if self.estimator.estimate_graph(nodes, edges, include_archived=False) > self.max_chars:
+                # Judge the swap after making it (formal F33). Connectedness
+                # counts an archived neighbour at less than an active one, so of
+                # two linked nodes the archived one looks better connected, and
+                # the swap reverses the comparison that chose it: scored before
+                # the move alone, the pair traded places on every tick.
+                after = (self._candidate_scores(nodes, edges, versions)
+                         if self.estimator.estimate_graph(nodes, edges, include_archived=False)
+                         <= self.max_chars else None)
+                if after is None or after.get(best, 0.0) - after.get(worst, 0.0) < RESURRECTION_MARGIN:
                     nodes[worst]["_archived"] = False
                     nodes[best]["_archived"] = True
                     continue

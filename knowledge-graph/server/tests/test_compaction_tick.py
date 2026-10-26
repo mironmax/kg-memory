@@ -17,6 +17,11 @@ archived node comes back, which no per-node delta credits. A small graph could
 sit over the fill ceiling only because of them, or set its last archived node
 aside as too big, with one node archived for good although every node fits.
 
+JUDGED AFTER THE SWAP (formal F33). Connectedness counts an archived neighbour
+at less than an active one, so of two linked nodes the archived one looks better
+connected. Rebalance compared scores taken before the swap, which the swap
+reverses: the pair traded places on every tick, forever, each tick a write.
+
 The graphs are the formal model's counterexamples (formal/compaction/). Each
 test ticks a real store the way _periodic_save does. KG_STORAGE_ROOT points at
 a temporary directory, so no real graph is touched.
@@ -189,10 +194,27 @@ def test_whole_archive():
           comp.refill_if_room(nodes, edges, {}) == [] and nodes["n1"].get("_archived"))
 
 
+def test_rebalance_settles():
+    print("rebalance judged after the swap (F33):")
+    # Two linked 80-char nodes where only one fits under max 190.
+    nodes, edges = graph([80, 80], [(0, 1), (1, 0)], read=[1, 2])
+    store, saves = boot(190, nodes, edges)
+    states = []
+    for _ in range(6):
+        tick(store)
+        states.append(tuple(archived(store)))
+    check("the active set stops changing", len(set(states[1:])) == 1, states)
+    n = saves[0]
+    tick(store)
+    check("a settled graph is not rewritten", saves[0] == n, saves[0] - n)
+    store.shutdown()
+
+
 if __name__ == "__main__":
     test_same_tick_refill()
     test_write_over_budget()
     test_no_thrash_with_refill()
     test_whole_archive()
+    test_rebalance_settles()
     print(f"\n{_PASS} passed, {_FAIL} failed")
     sys.exit(1 if _FAIL else 0)

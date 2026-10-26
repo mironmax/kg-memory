@@ -63,10 +63,13 @@ fi
 
 # Payload rides an env var: the heredoc below already occupies stdin, and
 # SessionStart payloads are small (ids + paths, no prompt text).
-HOOK_JSON="$STDIN_JSON" python3 - "${CLAUDE_PROJECT_DIR:-$PWD}" "http://${HOST}:${PORT}" <<'PYEOF'
+# The plugin's own version lets the server notice a plugin that updated
+# itself ahead of the server.
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$0")/..}"
+HOOK_JSON="$STDIN_JSON" python3 - "${CLAUDE_PROJECT_DIR:-$PWD}" "http://${HOST}:${PORT}" "$PLUGIN_ROOT" <<'PYEOF'
 import json, os, sys, urllib.parse, urllib.request
 
-cwd, base = sys.argv[1], sys.argv[2]
+cwd, base, plugin_root = sys.argv[1], sys.argv[2], sys.argv[3]
 try:
     try:
         hook = json.loads(os.environ.get("HOOK_JSON") or "{}")
@@ -78,6 +81,11 @@ try:
                      ("transcript_path", "transcript_path")):
         if hook.get(src):
             params[dst] = hook[src]
+    try:
+        with open(os.path.join(plugin_root, ".claude-plugin", "plugin.json")) as f:
+            params["plugin_version"] = json.load(f)["version"]
+    except Exception:
+        pass
     url = f"{base}/api/session_bootstrap?{urllib.parse.urlencode(params)}"
     with urllib.request.urlopen(url, timeout=4) as resp:
         data = json.loads(resp.read())

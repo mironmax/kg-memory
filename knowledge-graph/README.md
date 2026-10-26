@@ -154,6 +154,7 @@ The server reads a few tunables from environment variables. Where to set them de
 | `KG_CHORES` | unset | `1` or `0` overrides `"enabled"` in `chores.json` (background upkeep) |
 | `KG_BUDGET_NOTICES` | `1` | `0` turns budget notices off (or `"budget_notices": false` in `chores.json`) |
 | `KG_HOOKS` | unset | `off` in a run's environment silences every plugin hook in that run: no preload, no recall, no capture nudges, no upkeep dispatch. For scripted or headless runs that load the plugin but want no memory |
+| `KG_UPDATE_CHECK` | `1` | `0` stops the daily read of the latest version from PyPI, the server's only outbound request. It sends nothing about you; it is how the session-start preload learns that an update exists |
 | `KG_LOG_LEVEL` | `INFO` | Server log level |
 | `EDITOR_PORT` | `8766` | Visual editor port |
 
@@ -162,6 +163,8 @@ The server reads a few tunables from environment variables. Where to set them de
 > **The size budget is fixed by design.** Budgets are exact rendered characters: 22,000 per level and 50,000 for the combined full-graph render. The preload fits each client's hook limit as that client counts (9,500 UTF-16 units in Claude Code, 9,000 bytes in Codex). A reply longer than the client keeps whole arrives in parts, and only what a part showed counts as seen. Oversized full graphs hide the lowest-scored archived anchors and edges, with counts and a search pointer.
 
 > The full-graph figure is a target: active gists are preserved even if they alone exceed it. The newest nodes (the fresh tier, up to 30% of a level's budget) are never archived. So a level holding unusually long gists can render past its target until a maintenance pass tightens them.
+
+> **Locked nodes** are rules you wrote. Lock one in the visual editor (or with `"fields": {"locked": true}` on `POST /api/nodes`): agents and maintenance can no longer rewrite, delete or rename it, and it is never archived, even when that keeps a level over its budget. It guards against accidents, not against programs on your machine, since REST listens on localhost.
 
 ---
 
@@ -176,6 +179,7 @@ Graph data lives under `~/.knowledge-graph/` by default (`KG_STORAGE_ROOT` can c
 - **Maintenance memory:** `maintain.json`: the maintenance agent's own lessons, never shown in sessions
 - **Logs:** `recall.jsonl` records what recall decided per prompt and tool event. `useful.jsonl` records endorsements, plus the credits a repeat, an added case or a maintenance pass gives (marked `via: "recurrence"`, `"note"` or `"maintenance"`); the evaluator counts only real use. `chores.jsonl` records every upkeep decision. All are size-capped. They stay out of git: the server lists them in the repository's `.git/info/exclude`, and recall drops search terms shaped like keys or tokens before logging them.
 - **Upkeep:** `chores.json` (your switch and settings, if any) and `chore_state.json` (spacing and daily counts)
+- **Extra node fields (optional):** `fields.json` declares fields a module stores on nodes, for example `{"tags": {"agent": true}, "kind": {"type": "enum", "values": ["fact", "decision"], "agent": true}}`. Types: `enum`, `number` (`min`, `max`), `bool`, `string` (`max`), `tags`. `"agent": true` lets agents write the field through `kg_put_node`; otherwise only REST and the editor can. Read when it changes; the tool parameters follow at server start
 
 Project graphs are keyed by the project root's final directory name, without a path hash, so two project roots with the same final name share one graph; use distinct names within a storage root. Project roots must be under your home directory. See [Data and Backup](https://github.com/mironmax/kg-memory/wiki/Data-and-Backup#file-locations).
 

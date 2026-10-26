@@ -75,13 +75,29 @@ and reopen after setup. Antigravity is experimental:
 ## Updates
 
 ```bash
-kg update        # upgrades kg, restarts the server on it, updates every installed plugin
-kg doctor        # verify
+kg update --check   # the facts and a verdict: is now a good moment? changes nothing
+kg update           # upgrades kg, restarts the server on it, updates every installed plugin
+kg doctor           # verify
 ```
 
-Open sessions keep their tools: `kg mcp` waits out the restart. In Codex,
-trust changed hook definitions in `/hooks`; new skills and hooks load in a
-new session.
+The server reads the latest release from PyPI once a day (`KG_UPDATE_CHECK=0`
+turns it off). When a newer one exists, or the plugin updated itself ahead of
+the server, the preload opens with a `KG UPDATE` line, at most once a day per
+project. Updating is the user's decision, never automatic:
+
+1. Tell the user in one line what is available.
+2. If they want it, run `kg update --check` and pass on its verdict: "safe
+   now", or "better later" with the reason (other sessions working, a
+   maintenance run in progress), plus what to do afterwards.
+3. On their yes, run `kg update`, then relay the after-steps: restart Claude
+   Code sessions, trust the changed hooks in Codex's `/hooks`, a new
+   Antigravity conversation. A development checkout updates with `git pull`.
+
+After an update, the first preload carries `KG UPGRADE NOTES`: what changed,
+written to the agent, once per machine. Tell the user what matters to them and
+offer the steps a note names; the user decides.
+
+Open sessions keep their tools: `kg mcp` waits out the restart.
 
 ## Server lifecycle
 
@@ -127,7 +143,7 @@ the npx `mcp-remote` bridge is replaced; Node is no longer needed.
 Env vars: `KG_HTTP_PORT` (8765) · `KG_HTTP_HOST` (127.0.0.1) ·
 `KG_STORAGE_ROOT` (`~/.knowledge-graph`) · `KG_SAVE_INTERVAL` (30s) ·
 `KG_AUTOCOMMIT_INTERVAL` (900s, 0 disables) · `KG_ORPHAN_GRACE_DAYS` (365) ·
-`KG_LOG_LEVEL` (INFO).
+`KG_UPDATE_CHECK` (1; 0 stops the daily PyPI read) · `KG_LOG_LEVEL` (INFO).
 
 Where they take effect depends on what runs the server:
 

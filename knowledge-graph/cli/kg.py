@@ -394,6 +394,8 @@ def main(argv: list[str] | None = None) -> int:
     setup.add_argument("--plan", action="store_true", help="show what setup would do, change nothing")
     update = sub.add_parser("update", help="upgrade kg, then the server and every installed plugin")
     update.add_argument("--after-upgrade", action="store_true", help=argparse.SUPPRESS)
+    update.add_argument("--check", action="store_true",
+                        help="say whether now is a good moment, and what the update touches; change nothing")
     remove = sub.add_parser("uninstall", help="reverse what setup did (your memory stays)")
     remove.add_argument("--yes", action="store_true", help="apply without asking")
     remove.add_argument("--plan", action="store_true", help="show what it would do, change nothing")
@@ -411,7 +413,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "doctor":
             return doctor.run()
         if args.command == "update":
-            return doctor.update(args.after_upgrade)
+            return doctor.check_update() if args.check else doctor.update(args.after_upgrade)
         if args.command == "uninstall":
             return doctor.uninstall(args.yes, args.plan)
         only = set(args.only.split(",")) if args.only else None
