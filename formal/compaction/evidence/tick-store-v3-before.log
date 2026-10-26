@@ -1,0 +1,110 @@
+$ python3 tick_search.py store v3 20000   # main at a6240b8: locks not honoured, F33 unfixed
+20000 random graphs (v3), 10 idle ticks each, through the store tick GraphStore._maybe_compact
+C1: 3102 graphs
+C1 compact->refill: 0 graphs
+C1 compact->rebalance: 932 graphs
+C1 rebalance->refill: 1425 graphs
+C1 rebalance->rebalance: 1151 graphs
+F: 2972 graphs
+R: 1906 graphs
+C2: 1043 graphs
+C2 cycle: 1043 graphs
+C2 cycle in one tick: 37 graphs
+C2 cycle across ticks: 1006 graphs
+B1: 0 graphs
+B1 exempt: 0 graphs
+B2: 0 graphs
+B2 exempt: 0 graphs
+B3: 3 graphs
+B3 last: 0 graphs
+B4: 0 graphs
+B4 exempt: 0 graphs
+B5: 0 graphs
+L1: 9560 graphs
+L2: 7691 graphs
+share none: 6675 graphs
+share some: 6720 graphs
+share over: 6605 graphs
+first C1 compact->rebalance:
+   seed=0 max_chars=1859 ceiling=1487 hits=['C1', 'C1 compact->rebalance', 'C1 rebalance->rebalance', 'C2', 'C2 cycle', 'C2 cycle across ticks', 'F', 'R', 'share none']
+      tick 0: {'archived': ['n9', 'n4']} -> 1497 chars
+      tick 1: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 2: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 3: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 4: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 5: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 6: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 7: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 8: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 9: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+first C1 rebalance->rebalance:
+   seed=0 max_chars=1859 ceiling=1487 hits=['C1', 'C1 compact->rebalance', 'C1 rebalance->rebalance', 'C2', 'C2 cycle', 'C2 cycle across ticks', 'F', 'R', 'share none']
+      tick 0: {'archived': ['n9', 'n4']} -> 1497 chars
+      tick 1: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 2: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 3: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 4: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 5: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 6: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 7: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 8: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 9: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+first R:
+   seed=0 max_chars=1859 ceiling=1487 hits=['C1', 'C1 compact->rebalance', 'C1 rebalance->rebalance', 'C2', 'C2 cycle', 'C2 cycle across ticks', 'F', 'R', 'share none']
+      tick 0: {'archived': ['n9', 'n4']} -> 1497 chars
+      tick 1: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 2: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 3: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 4: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 5: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 6: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 7: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 8: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 9: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+first C2:
+   seed=0 max_chars=1859 ceiling=1487 hits=['C1', 'C1 compact->rebalance', 'C1 rebalance->rebalance', 'C2', 'C2 cycle', 'C2 cycle across ticks', 'F', 'R', 'share none']
+      tick 0: {'archived': ['n9', 'n4']} -> 1497 chars
+      tick 1: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 2: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 3: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 4: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 5: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 6: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 7: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 8: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 9: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+first C2 cycle in one tick:
+   seed=295 max_chars=842 ceiling=673 hits=['C1', 'C1 rebalance->rebalance', 'C2', 'C2 cycle', 'C2 cycle in one tick', 'L1', 'L2', 'R', 'share over']
+      tick 0: {'refilled': ['n5']} -> 623 chars
+      tick 1: {'swapped': [('n2', 'n4'), ('n0', 'n3'), ('n3', 'n2')]} -> 638 chars
+      tick 2: {'swapped': [('n2', 'n0'), ('n0', 'n3'), ('n3', 'n2')]} -> 638 chars
+      tick 3: {'swapped': [('n2', 'n0'), ('n0', 'n3'), ('n3', 'n2')]} -> 638 chars
+      tick 4: {'swapped': [('n2', 'n0'), ('n0', 'n3'), ('n3', 'n2')]} -> 638 chars
+      tick 5: {'swapped': [('n2', 'n0'), ('n0', 'n3'), ('n3', 'n2')]} -> 638 chars
+      tick 6: {'swapped': [('n2', 'n0'), ('n0', 'n3'), ('n3', 'n2')]} -> 638 chars
+      tick 7: {'swapped': [('n2', 'n0'), ('n0', 'n3'), ('n3', 'n2')]} -> 638 chars
+      tick 8: {'swapped': [('n2', 'n0'), ('n0', 'n3'), ('n3', 'n2')]} -> 638 chars
+      tick 9: {'swapped': [('n2', 'n0'), ('n0', 'n3'), ('n3', 'n2')]} -> 638 chars
+first C2 cycle across ticks:
+   seed=0 max_chars=1859 ceiling=1487 hits=['C1', 'C1 compact->rebalance', 'C1 rebalance->rebalance', 'C2', 'C2 cycle', 'C2 cycle across ticks', 'F', 'R', 'share none']
+      tick 0: {'archived': ['n9', 'n4']} -> 1497 chars
+      tick 1: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 2: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 3: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 4: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 5: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 6: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 7: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+      tick 8: {'swapped': [('n9', 'n4'), ('n4', 'n9'), ('n9', 'n4')]} -> 1497 chars
+      tick 9: {'swapped': [('n4', 'n9'), ('n9', 'n4'), ('n4', 'n9')]} -> 1782 chars
+first B3:
+   seed=9192 max_chars=2968 ceiling=2374 hits=['B3', 'C1', 'C1 rebalance->refill', 'F', 'share none']
+      tick 0: {'refilled': ['n10', 'n7', 'n11']} -> 2320 chars
+      tick 1: {'swapped': [('n4', 'n5'), ('n12', 'n1'), ('n9', 'n0')]} -> 1612 chars
+      tick 2: {'refilled': ['n1', 'n0']} -> 2156 chars
+first L1:
+   seed=1 max_chars=1015 ceiling=812 hits=['L1', 'L2', 'share over']
+      tick 0: {'archived': ['n2', 'n5', 'n1', 'n4'], 'refilled': ['n1']} -> 712 chars
+first L2:
+   seed=1 max_chars=1015 ceiling=812 hits=['L1', 'L2', 'share over']
+      tick 0: {'archived': ['n2', 'n5', 'n1', 'n4'], 'refilled': ['n1']} -> 712 chars

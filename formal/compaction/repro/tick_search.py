@@ -35,11 +35,19 @@ and, right after each pass, against the exact render (see Recording):
       node is the last archived one;
   B4  compaction archives but leaves the graph above max;
   B5  compaction archives right after a refill (refill triggered an archive).
+B1, B2 and B4 are exempt, and counted as "Bn exempt" instead, when every
+active node left is locked or in the fresh tier: no pass may move either, so
+such a graph stays over by design (P1). Locked nodes (v3) add:
+  L1  a locked node is archived or orphaned when a tick ends;
+  L2  compaction or rebalance archives a locked node.
 
-usage: python3 tick_search.py [store|legacy] [v1|v2] [N] [--dump FILE]
+usage: python3 tick_search.py [store|legacy] [v1|v2|v3] [N] [--dump FILE]
   legacy = thrash_search.py's sequence; store = the real tick (default).
   v1 = thrash_search.py's generator; v2 = adds credits, a pre-archived share
-       and under-budget starts, so refill and rebalance act first.
+       and under-budget starts, so refill and rebalance act first; v3 = v2 with
+       a locked share: none, some (1-3 nodes, possibly pre-archived, as in a
+       graph written before locks), or over budget (locked nodes alone render
+       above max), a third of the graphs each.
   KG_SERVER=<dir> runs against another checkout's knowledge-graph/server.
 """
 import json, os, random, sys, logging
@@ -54,6 +62,15 @@ from core.compactor import Compactor
 from core.scorer import NodeScorer
 from core.estimator import CharEstimator
 from core.constants import COMPACTION_TARGET_RATIO, FRESH_BUDGET_RATIO
+try:
+    from core.fields import is_locked  # what the server honours (exemptions)
+except ImportError:  # a server before locked nodes honours none
+    def is_locked(node): return False
+
+
+def marked_locked(node):
+    """The node carries the lock, whether or not the server honours it (L1, L2)."""
+    return node.get("locked") is True
 from mcp_http.store import MultiProjectGraphStore as GraphStore
 
 T0 = 1_760_000_000.0  # fixed clock: runs are reproducible
@@ -93,6 +110,33 @@ def graph_v2(rng):
     return nodes, edges
 
 
+def lock_share(rng, nodes, edges, est, max_chars):
+    """v3: lock none, some, or enough nodes that the locked ones alone render
+    above max_chars. Returns the share's kind. The over-budget share is drawn
+    after max_chars, so it is over by construction when the graph allows it."""
+    kind = rng.choice(["none", "some", "over"])
+    order = sorted(nodes)
+    rng.shuffle(order)
+    if kind == "some":
+        for nid in order[:rng.randint(1, 3)]:
+            nodes[nid]["locked"] = True
+    elif kind == "over":
+        saved = {nid: n.get("_archived") for nid, n in nodes.items()}
+        for nid in order:
+            nodes[nid]["locked"] = True
+            for m, n in nodes.items():
+                n["_archived"] = not marked_locked(n)
+            over = est.estimate_graph(nodes, edges) > max_chars
+            if over:
+                break
+        for nid, a in saved.items():
+            if a:
+                nodes[nid]["_archived"] = True
+            else:
+                nodes[nid].pop("_archived", None)
+    return kind
+
+
 class Recording(Compactor):
     """The real Compactor. Each pass's results are appended to self.log (a tick
     may run a pass more than once), and what each pass promises is checked on
@@ -109,12 +153,21 @@ class Recording(Compactor):
     def _size(self, nodes, edges):
         return self.estimator.estimate_graph(nodes, edges)
 
+    def _flag(self, name, nodes, edges):
+        """B1, B2, B4: exempt when every active node is locked or fresh (P1)."""
+        fresh = self.scorer.fresh_ids(nodes, edges)
+        exempt = all(is_locked(n) or nid in fresh for nid, n in nodes.items()
+                     if not n.get("_archived") and "_orphaned_ts" not in n)
+        self.flags.add(f"{name} exempt" if exempt else name)
+
     def compact_if_needed(self, nodes, edges, *a, **k):
         r = super().compact_if_needed(nodes, edges, *a, **k)
         if r:
             self.log["archived"] += r
+            if any(marked_locked(nodes[i]) for i in r):
+                self.flags.add("L2")
             if self._size(nodes, edges) > self.max_chars:
-                self.flags.add("B4")
+                self._flag("B4", nodes, edges)
             if self.last == "refill":
                 self.flags.add("B5")
             self.last = "compact"
@@ -129,7 +182,7 @@ class Recording(Compactor):
             self.log["refilled"] += r
             self.last = "refill"
             if after > ceiling:
-                self.flags.add("B1")
+                self._flag("B1", nodes, edges)
         if before < ceiling:
             left = [n for n in nodes.values() if n.get("_archived") and "_orphaned_ts" not in n]
             for n in left:
@@ -148,8 +201,10 @@ class Recording(Compactor):
         if r:
             self.log["swapped"] += r
             self.last = "rebalance"
+            if any(marked_locked(nodes[w]) for _, w in r):
+                self.flags.add("L2")
             if self._size(nodes, edges) > self.max_chars:
-                self.flags.add("B2")
+                self._flag("B2", nodes, edges)
         return r
 
     def orphan_archived_if_needed(self, *a, **k):
@@ -174,6 +229,7 @@ def run(seed, mode, gen):
     total = est.estimate_graph(nodes, edges, include_archived=True)
     lo, hi = (0.6, 1.0) if gen == "v1" else (0.5, 1.3)
     max_chars = max(200, int(total * rng.uniform(lo, hi)))
+    share = lock_share(rng, nodes, edges, est, max_chars) if gen == "v3" else None
     ceiling = int(max_chars * COMPACTION_TARGET_RATIO)
     if mode == "legacy":
         comp = Recording(NodeScorer(5), est, max_chars)
@@ -198,6 +254,8 @@ def run(seed, mode, gen):
         history.append((lg, size))
         states.append(active(nodes))
         fulls.append(full_state(nodes))
+        if any(marked_locked(n) and (n.get("_archived") or "_orphaned_ts" in n) for n in nodes.values()):
+            hits.add("L1")
         if tick:
             prev = history[-2][0]
             for dname, down in (("compact", set(prev["archived"])),
@@ -213,6 +271,8 @@ def run(seed, mode, gen):
         if len(states) >= 3 and (states[-3] - states[-2]) & states[-1]:
             hits.add("F")
     hits |= comp.flags
+    if share:
+        hits.add(f"share {share}")
     if any(lg["archived"] or lg["refilled"] or lg["swapped"] or lg["orphaned"]
            for lg, _ in history[-2:]):
         hits.add("C2")
@@ -250,10 +310,14 @@ if __name__ == "__main__":
           f"{'store tick GraphStore._maybe_compact' if mode == 'store' else 'legacy compact-else-refill sequence'}")
     for h in ["C1", "C1 compact->refill", "C1 compact->rebalance", "C1 rebalance->refill",
               "C1 rebalance->rebalance", "F", "R", "C2", "C2 cycle",
-              "C2 cycle in one tick", "C2 cycle across ticks", "B1", "B2", "B3", "B3 last", "B4", "B5"]:
+              "C2 cycle in one tick", "C2 cycle across ticks", "B1", "B1 exempt", "B2", "B2 exempt",
+              "B3", "B3 last", "B4", "B4 exempt", "B5", "L1", "L2",
+              "share none", "share some", "share over"]:
+        if h.startswith(("L", "share")) and gen != "v3":
+            continue
         print(f"{h}: {counts.get(h, 0)} graphs")
     for h in ["C1 compact->refill", "C1 compact->rebalance", "C1 rebalance->rebalance", "R", "C2",
-              "C2 cycle in one tick", "C2 cycle across ticks", "B1", "B2", "B3", "B4", "B5"]:
+              "C2 cycle in one tick", "C2 cycle across ticks", "B1", "B2", "B3", "B4", "B5", "L1", "L2"]:
         if h in first:
             print(f"first {h}:")
             show(first[h], mode, gen)
