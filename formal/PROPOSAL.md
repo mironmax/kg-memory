@@ -132,7 +132,10 @@ and most are fast and deterministic.
 - Each reproduction and model gets an expected-outcomes file. The job is
   report-only until it has been green twice.
 
-This closes the second item of the README's "Open work".
+The reproduction half is in place: `repros.txt` holds the expected outcome of
+each run (the compaction searches bounded to 2,000 seeded graphs per
+generator), `check_repros.py` checks them, and the `formal` workflow runs it.
+The Lean models follow.
 
 ### Step 4 — Tick properties as a seeded pytest
 
