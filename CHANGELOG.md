@@ -11,6 +11,9 @@ All notable changes to this project are documented here.
 ### Fixed
 - **Two linked nodes no longer trade places forever.** Between the fill ceiling and the budget, the upkeep tick swaps the best archived node for the worst active one. An archived node's links count for less than an active one's, so of two linked nodes the archived one looked better connected, and the swap reversed the comparison that chose it: the pair swapped back on every tick, rewriting the graph file each time, and the preload showed a different node every 30 seconds. A swap is now kept only if the promoted node still wins after it.
 
+### Security
+- **Worktree detection reads nothing outside your home folder.** Finding a linked worktree's main checkout reads its `.git` file and the `commondir` it names. It now stops at the home folder and follows neither file when it points outside, the same boundary project roots already have.
+
 ## [0.16.0] - 2026-10-18
 
 Memory for callers outside the usual session. A git worktree now shares its main checkout's memory instead of starting empty; `KG_HOOKS=off` keeps the memory out of a scripted run; and a program that composes its own context can open a session by REST, naming itself and what it already showed the model.

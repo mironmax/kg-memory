@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 _STORAGE = tempfile.TemporaryDirectory(prefix="kg-worktree-storage-")
@@ -87,6 +88,45 @@ class CheckoutTests(Layout):
 
     def test_a_removed_main_checkout_leaves_the_worktree_alone(self):
         Path(self.wt, ".git").write_text("gitdir: /nonexistent/.git/worktrees/x\n")
+        self.assertEqual(main_checkout_path(self.wt), self.wt)
+
+    def test_a_git_file_pointing_outside_home_is_not_followed(self):
+        outside = tempfile.TemporaryDirectory(prefix="kg-outside-home-")
+        self.addCleanup(outside.cleanup)
+        git_dir = os.path.join(outside.name, "worktrees", "x")
+        os.makedirs(git_dir)
+        Path(git_dir, "commondir").write_text(os.path.join(self.main, ".git") + "\n")
+        Path(self.wt, ".git").write_text(f"gitdir: {git_dir}\n")
+        self.assertEqual(main_checkout_path(self.wt), self.wt)
+
+    def test_a_worktree_outside_home_is_left_alone(self):
+        outside = tempfile.TemporaryDirectory(prefix="kg-outside-home-")
+        self.addCleanup(outside.cleanup)
+        main = os.path.join(outside.name, "app")
+        os.makedirs(main)
+        git("init", "-q", cwd=main)
+        git("commit", "-q", "--allow-empty", "-m", "init", cwd=main)
+        wt = os.path.join(outside.name, "app-fix")
+        git("worktree", "add", "-q", wt, "-b", "fix", cwd=main)
+        opened = []
+        real_open = open
+
+        def recording_open(file, *args, **kwargs):
+            opened.append(str(file))
+            return real_open(file, *args, **kwargs)
+        with mock.patch("builtins.open", recording_open):
+            self.assertEqual(main_checkout_path(wt), os.path.realpath(wt))
+        self.assertEqual(opened, [], "nothing outside home is read")
+
+    def test_a_commondir_pointing_outside_home_is_not_followed(self):
+        outside = tempfile.TemporaryDirectory(prefix="kg-outside-home-")
+        self.addCleanup(outside.cleanup)
+        elsewhere = os.path.join(outside.name, "other")
+        os.makedirs(os.path.join(elsewhere, ".git"))
+        git_dir = os.path.join(self.base, "fake-git-dir")
+        os.makedirs(git_dir)
+        Path(git_dir, "commondir").write_text(os.path.join(elsewhere, ".git") + "\n")
+        Path(self.wt, ".git").write_text(f"gitdir: {git_dir}\n")
         self.assertEqual(main_checkout_path(self.wt), self.wt)
 
     def test_project_roots_resolve_to_the_main_checkout(self):
