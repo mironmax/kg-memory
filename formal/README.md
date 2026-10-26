@@ -31,8 +31,9 @@ lifecycle (F24–F26), credits (F27–F32), the compaction tick (F7, F33, F34) a
 cross-session awareness (F35–F38). Left:
 
 - decisions on F33 and F38;
-- running the models in CI. `run_all.sh` prints results but never fails, so a
-  CI job would need expected outcomes per model and reproduction.
+- running the Lean models in CI. The reproductions already run there:
+  `check_repros.py` checks each against its expected outcome in
+  `repros.txt`, on every PR that touches the server.
 
 [PROPOSAL.md](PROPOSAL.md) is the plan for what follows: a check of the
 merged 0.17 tick, a written list of what the system promises, the
@@ -132,6 +133,9 @@ PYTHON="$(realpath ../knowledge-graph/server/venv/bin/python)" ./run_all.sh
 ```
 
 Each model can also be run on its own, e.g. `lean --run rename/lean/Rename.lean`.
+`check_repros.py` runs the reproductions alone (about 2 minutes) and fails on
+any outcome that differs from `repros.txt`; CI runs it on PRs that touch the
+server. A fix that closes an open finding updates its line there.
 While a finding is unfixed, its reproduction prints `BUG`/`FAIL`; after the
 fix it prints `PASS`. The F2 reproduction keeps printing `FAIL B, C`: those
 two checks expect a reload to keep unsaved memory, which F3's policy

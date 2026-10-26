@@ -1,0 +1,47 @@
+# Expected outcomes of the reproductions, checked by check_repros.py in CI.
+#
+# One line per run: the command (a script under formal/ and its arguments),
+# then each expected outcome after "=>", as a regular expression that some
+# output line must match. A run also fails when it exits non-zero, times
+# out, or prints a FAIL or BUG verdict line that no expectation names.
+#
+# An open finding expects its own BUG/FAIL line. A fix that closes it fails
+# the check until this file says what the run prints now: update the line in
+# the same PR, so the change of outcome is reviewed with the code.
+
+budget-notices/repro/check_budget.py                  => ^PASS$
+budget-notices/repro/repro_agy_stale.py               => ^PASS$
+chore-dispatch/repro/repro_stale_state.py spawn_fail  => ^PASS$
+chore-dispatch/repro/repro_stale_state.py quick_exit  => ^PASS$
+chore-dispatch/repro/check_rules.py                   => ^PASS$
+chore-dispatch/repro/repro_agy_orphan.py              => ^PASS$
+chore-dispatch/repro/repro_runner_pin.py              => ^PASS$
+chore-dispatch/repro/repro_state_write.py             => ^PASS$
+chore-dispatch/repro/repro_wedge.py                   => ^PASS$
+chore-dispatch/repro/repro_gauge_carried.py           => ^PASS$
+chore-dispatch/repro/repro_midflight.py config        => ^PASS$
+chore-dispatch/repro/repro_midflight.py suspend       => ^PASS$
+lifecycle/repro/repro_lifecycle.py                    => ^RESULT: PASS$
+lifecycle/repro/repro_shim.py                         => ^RESULT: PASS$
+# kg_progress appends a trail entry per call, so a retried call adds one more.
+lifecycle/repro/repro_retry.py                        => ^changed by a repeat: \['kg_progress'\]$
+credits/repro/repro_credits.py                        => ^RESULT: all hold$
+# F2's checks B and C expect a reload to keep unsaved memory, which F3's policy declines.
+store-persistence/repro/repro_failed_save.py          => ^RESULT: FAIL B, C$
+rename/repro/repro_rename.py                          => ^RESULT: all hold$
+sessions/repro/repro_fork.py                          => ^RESULT: all hold$
+sessions/repro/repro_fork_unbound.py                  => ^RESULT: all hold$
+sessions/repro/repro_saver_death.py amplified         => ^saver survived
+sessions/repro/repro_saver_death.py default           => ^saver survived
+websocket/repro/repro_ws.py                           => ^PASS: the subscribed editor got its project's change
+compaction/repro/repro_tick.py                        => ^RESULT: all hold$
+# Seeded and bounded: properties of the real tick, not its states.
+compaction/repro/tick_search.py store v1 2000         => ^C2 cycle: 0 graphs$ => ^B1: 0 graphs$ => ^B2: 0 graphs$ => ^B4: 0 graphs$
+compaction/repro/tick_search.py store v2 2000         => ^C2 cycle: 0 graphs$ => ^B1: 0 graphs$ => ^B2: 0 graphs$ => ^B4: 0 graphs$
+compaction/repro/tick_search.py store v3 2000         => ^C2 cycle: 0 graphs$ => ^B1: 0 graphs$ => ^B2: 0 graphs$ => ^B4: 0 graphs$ => ^L1: 0 graphs$ => ^L2: 0 graphs$
+security/repro/repro_csrf.py                          => node planted: False$ => registered a session: False$ => reload=true .*: 403$
+delivery/repro/repro_paging.py                        => ^RESULT: PASS$
+delivery/repro/repro_agy.py                           => ^RESULT X2a: PASS$ => ^RESULT X2b: PASS$ => ^RESULT X3: PASS$ => ^RESULT X4: PASS$
+# F38 is open: a hook reply lost to the client's timeout still uses up the push.
+cross-session/repro/repro_foreign.py                  => ^\s*BUG: the lost hook reply used up the push => ^RESULT: FAIL F38$
+concurrent-writes/repro/repro_lost_update.py          => ^RESULT: PASS$

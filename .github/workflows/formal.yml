@@ -1,0 +1,46 @@
+name: formal
+
+# The formal findings' reproductions drive the real server code, so they are
+# the guard against drift between the findings and the code: a change that
+# brings back a fixed finding, or closes an open one, changes an outcome
+# (formal/repros.txt). The Lean models are not run here yet.
+on:
+  pull_request:
+    paths:
+      - "knowledge-graph/server/**"
+      - "formal/*/repro/**"
+      - "formal/repros.txt"
+      - "formal/check_repros.py"
+      - ".github/workflows/formal.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repros:
+    runs-on: ubuntu-latest
+    # Report-only until it has been green on two pull requests.
+    continue-on-error: true
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+          cache: pip
+          cache-dependency-path: knowledge-graph/server/requirements.txt
+
+      - name: Create a fresh virtual environment
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/python" -m pip install --disable-pip-version-check -r knowledge-graph/server/requirements.txt
+          "$RUNNER_TEMP/venv/bin/python" --version
+
+      # Some reproductions put their projects under ~/.cache, inside home as the server requires.
+      - name: Prepare the environment
+        run: mkdir -p "$HOME/.cache"
+
+      - name: Check every reproduction against its expected outcome
+        run: python3 formal/check_repros.py --python "$RUNNER_TEMP/venv/bin/python"
