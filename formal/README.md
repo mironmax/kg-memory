@@ -34,6 +34,12 @@ cross-session awareness (F35–F38). Left:
 - running the models in CI. `run_all.sh` prints results but never fails, so a
   CI job would need expected outcomes per model and reproduction.
 
+[PROPOSAL.md](PROPOSAL.md) is the plan for what follows: a check of the
+merged 0.17 tick, a written list of what the system promises, the
+reproductions in CI, tick properties as a seeded test, and a time-boxed first
+proof (F33). [PROMISES.md](PROMISES.md) states what the server promises and
+what checks each promise.
+
 ## Method
 
 1. **Model** one risky concern: a state machine, a thread interleaving, or a
