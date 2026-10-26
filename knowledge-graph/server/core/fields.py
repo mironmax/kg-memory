@@ -6,7 +6,7 @@ which agents cannot rewrite, delete or rename and compaction never evicts
 agent: the admin surfaces (REST, the visual editor) are on localhost.
 
 Every other field is DECLARED by the storage root's fields.json, so a module
-running its own instance (kg-teams on its own root) brings its vocabulary
+running its own instance (on its own storage root) brings its vocabulary
 without the product carrying it. A root without the file has no extension
 fields, and its agents see no new tool parameters:
 
@@ -19,8 +19,8 @@ fields, and its agents see no new tool parameters:
 
 Types: enum (values), number (min/max), bool, string (max length), tags.
 "agent": true lets MCP write the field; otherwise only the admin surfaces can.
-Fields are stored as top-level node keys (the shape kg-teams already has on
-disk). A value of None removes the field.
+Fields are stored as top-level node keys (the shape existing module graphs
+have on disk). A value of None removes the field.
 """
 
 import json
@@ -38,7 +38,7 @@ TAGS_FIELD = "tags"
 
 _RESERVED = {"id", "gist", "notes", "touches", "level", "session_id", LOCKED_FIELD}
 _NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
-# Bare kind ("general") or kind:name ("area:marketing", "person:maxim").
+# Bare kind ("general") or kind:name ("area:marketing", "person:alex").
 _TAG_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}(:[A-Za-z0-9][A-Za-z0-9._/-]{0,127})?$")
 _TYPES = ("enum", "number", "bool", "string", "tags")
 MAX_TAGS = 32

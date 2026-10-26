@@ -2,7 +2,9 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased]
+## [0.17.0] - 2026-10-26
+
+Memory you can pin, and memory that speaks. A node you lock stays as you wrote it and always in view; a storage root can declare its own node fields; and the memory now says when a newer release exists, whether now is a good moment to update, and what changed, in a note to the agent. Also fixed: two linked nodes no longer trade places on every upkeep tick, and worktree detection reads nothing outside the home folder.
 
 ### Added
 - **Lock a node to keep a rule you wrote as it is.** In the visual editor, Lock on a node's details (or `"fields": {"locked": true}` on `POST /api/nodes`) stops agents and maintenance from rewriting, deleting or renaming it; they can still read it, link to it and endorse it. A locked node always stays active: compaction never archives or orphans it, and one found archived is brought back. The graph render marks it `(locked)` so an agent does not plan an edit it cannot make. Refused attempts are kept in the graph's progress slot `rejections` (the last 50). The lock guards against accidents, not against a program on your machine: REST is on localhost.
