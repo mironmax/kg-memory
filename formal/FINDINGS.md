@@ -744,7 +744,17 @@ the graph) gives 4,141.
   active set alternates, `kg_read` and the preload show a different node every
   30 seconds and auto-commit records the flip. Compaction's resurrection pass
   (`compactor.py:91-129`) uses the same before-the-move comparison. **Status:
-  reproduced, open: the fix is a choice of rebalance policy** (options below).
+  fixed in 0.17 with option 1** (below): rebalance re-scores each tentative
+  swap and keeps it only if the promoted node still wins by the margin. X2
+  now reaches a fixpoint. The real tick over 20,000 random graphs per
+  generator: v1 1,015 cycling graphs before, 1 after; v2 1,043 before, 0
+  after; no new B-bound breach. The residual (v1 seed 11314) is the limit
+  option 1 was known to have: two swaps (n1/n13, n4/n7) each pass the check
+  alone and shift each other's percentiles, a period-4 cycle. Option 2 would
+  close it at the cost of what rebalance optimises; not taken. Resurrection
+  keeps its before-the-move comparison: it acts only on a compacting tick,
+  and no cycle through it was found. Cost on real graphs (585 and 409
+  nodes): one scoring is 3-5 ms per tentative swap.
 - **F34 — A node stayed archived although the whole graph fit under the fill
   ceiling** (very low; `compactor.py:170-226`). Promoting the last archived
   node also removes the ARCHIVED header and its anchor, which neither refill's
@@ -758,7 +768,7 @@ the graph) gives 4,141.
   after; refill stopping short at the last node, in 756 random graphs of the
   second generator before and none after.
 
-**Options for F33** (none adopted; 1 and 2 are variants `post` and `pot` of
+**Options for F33** (option 1 adopted in 0.17; 1 and 2 are variants `post` and `pot` of
 the model, run with the F7 and F34 fixes):
 
 1. *Judge the swap after it.* Re-score the tentative swap and keep it only if

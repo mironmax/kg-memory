@@ -352,7 +352,15 @@ class Compactor:
                     break
                 nodes[worst]["_archived"] = True
                 nodes[best]["_archived"] = False
-                if self.estimator.estimate_graph(nodes, edges, include_archived=False) > self.max_chars:
+                # Judge the swap after making it (formal F33). Connectedness
+                # counts an archived neighbour at less than an active one, so of
+                # two linked nodes the archived one looks better connected, and
+                # the swap reverses the comparison that chose it: scored before
+                # the move alone, the pair traded places on every tick.
+                after = (self._candidate_scores(nodes, edges, versions)
+                         if self.estimator.estimate_graph(nodes, edges, include_archived=False)
+                         <= self.max_chars else None)
+                if after is None or after.get(best, 0.0) - after.get(worst, 0.0) < RESURRECTION_MARGIN:
                     nodes[worst]["_archived"] = False
                     nodes[best]["_archived"] = True
                     continue
