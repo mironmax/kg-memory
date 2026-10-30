@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+Memory discipline that used to live in the recommended output style and in long-time users' own graphs now ships in the texts every session reads. A fresh install learns when to capture, how to sharpen a lesson met again, and when to wrap up, without a style or a grown graph to copy from.
+
+### Changed
+- **The kg-core description says when to capture and when to wrap up.** It names the moments a lesson lands (a fix that took several tries, a surprise, a user's correction) and says that a failure met again means its lesson missed something: the case is added and the gist sharpened to what the cases share. The wrap-up gets its own paragraph: when a task is done and before the final answer, walk back through the work, write what is still missing, and endorse what helped. The description no longer repeats what the preload header says, and uses 1,497 of the 1,536 characters a skill description may have.
+- **The kg-core body keeps only what no other text says.** The sections now carried where the agent reads them (session start, recall, search, naming, dates, renames, endorsement) are gone. What has no such place yet stays: the no-preload path, what is worth capturing, placement, documents pointing into memory, levels, subagents.
+- **`kg_put_node` and `kg_read` carry their part.** A lesson met again is rewritten around what its cases share, not only given another note; and a node whose gist touches the task is worth reading in full, since a wrong guess costs one call and a missed node can cost the task.
+- **The stop-level budget notice names capture and endorsement.** At 90% of a quota window it now says to capture the lessons not yet written and endorse the nodes that helped, beside committing and writing the handover.
+- **The recommended output style's Memory section keeps only the letter.** It no longer asks the agent to read the kg-core skill in full, and no longer repeats capture and search advice the plugin now gives itself.
+
 ## [0.17.0] - 2026-10-26
 
 Memory you can pin, and memory that speaks. A node you lock stays as you wrote it and always in view; a storage root can declare its own node fields; and the memory now says when a newer release exists, whether now is a good moment to update, and what changed, in a note to the agent. Also fixed: two linked nodes no longer trade places on every upkeep tick, and worktree detection reads nothing outside the home folder.
