@@ -104,8 +104,9 @@ def notice(session_manager, sid: str | None, name: str,
         if not level or not session_manager.note_budget_level(sid, window, level, resets):
             continue
         head = f"Budget: {LABELS[window]} quota at {pct:.0f}% ({_when(window, resets)})."
-        lines.append(head + (" Wrap up now: commit or checkpoint, write the handover "
-                             "and memory updates, then stop or ask the user."
+        lines.append(head + (" Wrap up now: commit or checkpoint, capture the lessons "
+                             "not yet written, endorse the nodes that helped, write "
+                             "the handover, then stop or ask the user."
                              if level == 2 else
                              " Plan the wrap-up: finish the current step, reach a "
                              "commit point, keep the next steps small."))
