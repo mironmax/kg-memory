@@ -11,6 +11,7 @@ Memory discipline that used to live in the recommended output style and in long-
 - **The kg-core body is the reference behind the description.** Rewritten in plain statements: session start and paging, recall across tiers, what to capture and where to place it, the two endorsement cases and their timing, levels, subagents, operations. It no longer repeats the description's own sentences.
 - **`kg_put_node` and `kg_read` carry their part.** A lesson that recurs gets its gist rewritten to what the cases share, not only another note; and the nodes whose gists concern the task are read in full.
 - **The stop-level budget notice names capture and endorsement.** At 90% of a quota window it now says to capture the lessons not yet written and endorse the nodes that helped, beside committing and writing the handover.
+- **Every instruction text the plugin emits is in one register: neutral and precise.** The tool descriptions, the preload header, the full-read nudge, the capture nudge and the reminder pulses state the situation, what to do and the mechanism, without emphasis or figurative phrasing, and each rule is literally correct as written.
 - **The recommended output style's Memory section keeps only the letter.** It no longer asks the agent to read the kg-core skill in full, and no longer repeats capture and search advice the plugin now gives itself.
 
 ## [0.17.0] - 2026-10-26

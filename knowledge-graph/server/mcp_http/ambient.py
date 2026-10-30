@@ -60,7 +60,7 @@ logger = logging.getLogger(__name__)
 # The deterministic full-read reminder, moved server-side (the hook used to
 # compose it from /api/session_state). Wording matches v0.9.21.
 FULL_READ_NUDGE = (
-    "KG preload is a PARTIAL view — the full graph is NOT in context yet. "
+    "KG preload is a partial render; the full graph is not in context yet. "
     "Call kg_read(session_id) once before substantive work, following its parts "
     "with more=true if it says it continues; it renders everything the preload "
     "dropped without repeating it."
@@ -589,11 +589,11 @@ def _nudge_text(kind: str, needle: str, entry: dict, kg_sid: str) -> str:
         level = "project (or user, if the finding is cross-project)"
     return (
         f"KG capture: '{needle}' — {evidence}, and no memory node references it. "
-        "That repetition means a bottom line worth keeping was re-derived. If this "
-        "one has lasting value (what it is/handles, the gotcha, the decision), "
+        "A repeat like this means a conclusion was derived again. If it has lasting "
+        "value (what the thing is or handles, a gotcha, a decision), "
         f"capture it: kg_put_node(session_id='{kg_sid}', level='{level}', "
         f"id='<kebab-id>', gist='<the bottom line>', touches=['{needle}']). "
-        "Genuinely one-off? Skip."
+        "If it is a one-off, skip."
     )
 
 
