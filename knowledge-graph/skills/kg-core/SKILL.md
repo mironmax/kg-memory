@@ -2,96 +2,117 @@
 name: kg-core
 user-invocable: false
 description: |
-  Knowledge Graph — persistent, granular, evolving memory.
+  Knowledge Graph — persistent, granular, evolving memory. Read this skill in full at the start of a session.
 
-  Start: the preloaded block is only the top of memory. One full
-  kg_read(session_id) — kg_read(cwd="<project root>") when nothing was
-  preloaded — comes before any work, whatever the task.
+  Start: the preload is a partial render of both graphs. One full kg_read(session_id), following its parts with more=true, comes before any work, in every session. Without a session_id, kg_read(cwd="<project root>") opens the session and returns one.
 
-  Recall: when a gist points at the task, read that node in full. Search
-  before re-deriving what this project may have met before; in a grown
-  graph the fact you need is often buried under fresher work.
+  Recall: read in full the nodes whose gists concern the task (kg_read ids=[...]). Before deriving something the project may already hold, use kg_search: it reaches archived and orphaned nodes, which the render does not show.
 
-  Capture as you go, at the moment a lesson lands: a fix that took several
-  tries, a surprise, a user's correction. One lesson, one node, its id
-  naming the subject in 3-5 words, never a container: the gist states the
-  lesson so it holds beyond the case that taught it; each note tells one
-  case of it — what happened, where. A failure met again means
-  its lesson missed something: add the case, then sharpen the gist to what
-  the cases share. Connect with edges rather than re-describe a node that
-  exists; a new lesson still earns its own node.
+  Capture at the moment of learning: a fix that took several attempts, an unexpected result, a correction from the user. One lesson per node; the id names the subject in 3-5 words; the gist states the lesson in general terms; each note records one case (what happened, where). When a lesson recurs, add the case and rewrite the gist to what the cases share. Link related nodes with edges instead of restating them; a new lesson gets its own node.
 
-  Wrap-up, when a task is done and before the final answer: walk back
-  through the work — each point where another choice would have changed
-  the outcome is a lesson, rarely just one — and write what is still
-  missing. Then endorse with kg_useful the nodes that helped, judged
-  against results. A node that was MISSING (it existed, the work needed
-  it, nothing surfaced it) is endorsed the moment that shows: that credit
-  is what keeps a node alive.
+  Wrap-up, when the task is done and before the final answer: walk back through the work, write the lessons not yet captured, and endorse with kg_useful the nodes that helped, judged against results. A node that existed, was needed and was not surfaced is endorsed as soon as that is established. Endorsements are the usefulness input of archival scoring.
 
-  Mechanics live in the kg_* tool descriptions; operations in /kg-ops.
+  Mechanics: the kg_* tool descriptions. Operations: /kg-ops.
 ---
 # Knowledge Graph Reference
 
-The description above is what reaches the agent every session. The rest of
-the doctrine lives where it is read at the moment it matters: the preload
-header (the start of a session), the `kg_*` tool and parameter descriptions
-(reading, writing, naming, endorsing), and the hook notices (capture, budget,
-wrap-up). This body keeps what has no such channel yet; change those texts,
-not a copy here.
+The description above reaches the agent in every session; this body is the
+reference behind it. The preload header, the `kg_*` tool descriptions and the
+hook notices carry the same rules at the moment they apply. A rule changes in
+all of them together.
 
-## When there is no preload
+## Session start
 
-Desktop sessions, or a server still warming up: `kg_read(cwd="<project root>")`
-returns the full graph plus the session_id. With no project folder (a general
-chat), `kg_read()` opens user memory alone; passing cwd with that session_id
-later attaches the project. The tools start the server themselves and wait out
-restarts, so a kg tool that keeps failing to connect means a start that fails
-(a /kg-ops matter: `kg doctor`). Resuming an earlier conversation:
-`kg_sync(session_id)` picks up what other sessions wrote meanwhile.
+The preload, a hook injection at session start, shows the top-scored nodes of
+the user graph and the project graph within a small budget, with the
+session_id. `kg_read(session_id)` renders the rest: every active gist not yet
+shown, archived nodes as ids, live edges. A long render arrives in parts;
+`kg_read(session_id, more=true)` returns the next part until the reply says it
+is complete. The session_id goes on every later `kg_*` call: it keeps one
+session, includes the project graph in searches and avoids registering further
+sessions.
 
-## What is worth capturing
+Without a preload (a desktop chat, a subagent, a server still starting):
+`kg_read(cwd="<project root>")` opens the session, renders both graphs and
+returns the session_id. `kg_read()` without cwd opens the user graph only; a
+later call with cwd and the session_id attaches the project. Resuming an
+earlier conversation: `kg_sync(session_id)` adds what other sessions wrote
+since.
 
-Whatever took effort to obtain: how the project is wired, how a thing works,
-decisions and their rationale, preferences and constraints, where things are.
-And whatever gives future sessions navigation: a component node for files you
-explored, saying what the cluster handles and what it does not.
+A kg tool that repeatedly fails to connect means the server did not start:
+/kg-ops, `kg doctor`.
 
-## Placement
+## Recall
 
-- Name things once. When a thing recurs across sessions (a service, a
-  feature, a saga) one node owns it; event nodes record what changed and edge
-  to the owner instead of re-describing it. Re-description is how an entity
-  smears across a dozen narratives until search can no longer tell which node
-  owns it.
-- Touches are precise pointers, `path:line-range (short anchor)`, so the next
-  session reads ten lines instead of the file.
-- Cross-level edges (project decision to user principle) are legitimate;
-  store them in the project graph.
+The render is the surface: active gists in full, archived nodes as ids,
+orphaned nodes not at all. `kg_read(session_id, ids=[...])` returns a node's
+gist, notes, touches and edges, several nodes per call; reading an archived
+node promotes it to active. `kg_search` matches ids, gists, notes and touches
+across all tiers. A node found by search that should have been on the surface
+is a miss; endorse it (see Endorsement).
 
-Documents point INTO memory, never the other way round. A letter, a handover
-or a README naming a node id is a stationary artifact taking a dependency on a
-moving one: nodes get renamed, merged, archived, and the doc silently rots.
-Write what the doc means in its own words, and let the node carry the doc's
-path in `touches`.
+## Capture
+
+Worth capturing: what took effort to obtain (how the project is wired, how a
+thing works, decisions and their rationale, preferences and constraints, where
+things are) and what gives a later session navigation (a component node for a
+cluster of files: what it handles and what it does not).
+
+Placement:
+
+- One lesson per node. A gist joining two ideas with "and" is two nodes and an
+  edge.
+- The id names the subject in 3-5 kebab-case words; the claim about the
+  subject goes in the gist. Ids are weighted in search and refused at seven
+  words or more. Rename with `kg_rename_node`, which carries edges and history;
+  a new node plus a deletion loses both.
+- No dates in ids or gists. A date says when something was written, not what
+  it is; a node per dated event is usually one enduring node for the subject,
+  updated as events land. A note may name the day of its case.
+- The gist states the lesson in general terms; rationale and steps go in
+  notes; each note is one case.
+- Touches are precise pointers: `path:line-range (short anchor)`.
+- Name a recurring thing once. One node owns a service, a feature or a saga;
+  event nodes record what changed and edge to the owner. An entity restated in
+  several nodes leaves search unable to tell which node owns it.
+- Cross-level edges (a project decision to a user principle) are stored in the
+  project graph.
+
+Documents point into memory, not the other way round: a letter or a README
+that names a node id depends on an id that may be renamed, merged or archived.
+State the meaning in the document's own words, and let the node carry the
+document's path in its touches.
 
 Other memory systems (CLAUDE.md, auto memory) are supplementary; their
 exclusion rules govern their own storage. When in doubt, record here.
 
+## Endorsement
+
+`kg_useful(session_id, ids=[...])` is the usefulness input of archival scoring;
+reads, searches and citations do not count. Two cases earn it. A node that
+helped: it was in context and the work went differently for it, judged at
+wrap-up against the result. A node that was missing: it existed, this session
+needed it, and nothing surfaced it; send this one as soon as it is established,
+because a session may end before its wrap-up and a miss is the only signal
+that corrects an archival decision. The guidance is five per session; the
+reply says how far past it a session is; ten is the hard cap. One vote per
+node. An endorsement does not move a node to the surface; a full read does,
+and promotes an archived node. If the gist was also stale, update it.
+
 ## Levels
 
-**user**: cross-project wisdom, preferences, principles, patterns that
-travel. **project**: this codebase and its operations, architecture,
-decisions, component nodes, discoveries.
+**user**: knowledge that applies across projects (preferences, principles,
+patterns). **project**: this codebase and its operations (architecture,
+decisions, component nodes, discoveries).
 
 ## Subagents
 
-Subagents receive no preload. The dispatching session sizes memory into each
-prompt: exploration and mining agents get kg_* instructions plus the
-session_id; ordinary task agents get the few relevant gists pasted; narrow
-mechanical tasks get nothing.
+Subagents receive no preload. The dispatching session puts memory into each
+prompt: exploration and mining agents get `kg_*` instructions and open their
+own session with `kg_read(cwd=...)`; ordinary task agents get the relevant
+gists pasted; narrow mechanical tasks get nothing.
 
 ## Operations
 
-Server lifecycle, reconnect after restart, backup, troubleshooting: the
-/kg-ops runbook covers it; do not improvise server management from here.
+Server lifecycle, reconnect after a restart, backup, troubleshooting: the
+/kg-ops runbook. Do not improvise server management from here.
