@@ -45,7 +45,7 @@ if [ -z "$RESP" ]; then
         if printf '%s' "$STATE" | grep -q '"found":[[:space:]]*true' && \
            printf '%s' "$STATE" | grep -q '"full_read_done":[[:space:]]*false'; then
             printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"%s"}}' \
-                "KG preload is a PARTIAL view — the full graph is NOT in context yet. Call kg_read(session_id) once before substantive work, following its parts with more=true if it says it continues; it renders everything the preload dropped without repeating it."
+                "KG preload is a partial render; the full graph is not in context yet. Call kg_read(session_id) once before substantive work, following its parts with more=true if it says it continues; it renders everything the preload dropped without repeating it."
             exit 0
         fi
     fi
@@ -67,38 +67,38 @@ if [ -n "$TRANSCRIPT" ]; then
 fi
 
 early=(
-  "KG memory active. No preload block in context and nothing read yet? Call kg_read(cwd) before any task work."
-  "About to search files or web? Check KG first — kg_search may already have the answer."
-  "Opening files? Check for component nodes in KG before reading — skip what's already mapped."
-  "Check archived node IDs — any feel related to current work? kg_read(session_id, ids=[...]) to promote and use."
-  "Dispatching a subagent? It gets NO KG preload — put the relevant gists or kg_* instructions in its prompt."
-  "About to make an assumption? kg_search first. If missing, state it and capture it."
+  "KG memory is active. If no preload block is in context and nothing has been read yet, call kg_read(cwd) before task work."
+  "Before searching files or the web, check the memory: kg_search may hold the answer."
+  "Before opening files, check for component nodes in the memory; what is already mapped need not be re-read."
+  "Archived node ids that relate to the current work: kg_read(session_id, ids=[...]) promotes them and returns their content."
+  "A dispatched subagent receives no KG preload; put the relevant gists or kg_* instructions in its prompt."
+  "Before acting on an assumption, kg_search. If the graph has nothing, state the assumption and capture what you find."
 )
 
 mid=(
-  "KG capture pulse: did the last exchange reveal anything worth keeping? Write it before moving on."
-  "Did user express a preference, style, or constraint? Capture it as a user-level node now."
-  "User corrected your approach? Capture the signal you missed, not just the fix."
-  "User had to tell you something the graph already knew? That is a miss — kg_search for the node, kg_read it to promote it, and kg_useful it now. Nothing else corrects a wrong archival."
-  "User just agreed on an approach? Capture the methodology as a node — decisions alone aren't enough."
-  "Just resolved something that took 10+ minutes? Root cause node before moving on."
-  "Explained something non-obvious? That explanation is a node. Write it before context scrolls away."
-  "Did you discover how two parts of the codebase connect? That's an edge. Write it now."
-  "About to make an assumption? kg_search first. If missing, state it and capture it."
-  "Active memory session: write discoveries mid-conversation, not at task end. Cache is warm — cost is minimal."
-  "Dispatching a subagent? It gets NO KG preload — put the relevant gists or kg_* instructions in its prompt."
-  "About to search files or web? Check KG first — kg_search may already have the answer."
+  "KG capture pulse: did the last exchange produce anything worth keeping? Write it before moving on."
+  "Did the user state a preference, a style or a constraint? Capture it as a user-level node now."
+  "Did the user correct the approach? Capture the signal that was missed, not only the fix."
+  "Did the user have to say something the graph already held? That is a miss: kg_search for the node, kg_read it to promote it, kg_useful it now. Only a miss corrects a wrong archival decision."
+  "Did the user agree on an approach? Capture the method as a node; the decision alone is not enough."
+  "Did something take ten minutes or more to resolve? Write a root-cause node before moving on."
+  "Explained something non-obvious? That explanation is a node; write it before the context moves on."
+  "Found how two parts of the codebase connect? That is an edge; write it now."
+  "Before acting on an assumption, kg_search. If the graph has nothing, state the assumption and capture what you find."
+  "Write discoveries during the conversation, not at the end of the task; the cache is warm and the cost is small."
+  "A dispatched subagent receives no KG preload; put the relevant gists or kg_* instructions in its prompt."
+  "Before searching files or the web, check the memory: kg_search may hold the answer."
 )
 
 deep=(
-  "Context window getting deep? Scan for anything unrecorded — this is the highest-value capture moment."
-  "Check the DEBT lines from your last kg_read — HIGH on either graph? Spawn a maintenance subagent per the /kg-maintain skill (it gets no preload — the skill has the dispatch prompt)."
-  "Any node gist gone stale or vague after using it? Sharpen it while context is still live."
-  "Any edges missing between nodes you've used today? One edge makes both nodes far more durable."
-  "Any architectural decision made this session? Node with rationale in notes — not just the conclusion."
-  "KG is your twin across sessions — what would future-you wish was recorded from this conversation?"
-  "Wrapping up? Two questions, not one: which nodes truly changed the outcome — and what did you re-derive, or get corrected on, that the graph already held and never showed you? Both earn kg_useful(session_id, ids=[...]) — five is guidance, not a quota, so send every one that genuinely earned it, judged by what happened rather than by promise."
-  "KG capture pulse: did the last exchange reveal anything worth keeping? Write it before moving on."
+  "The context is deep: scan for anything unrecorded. This is the highest-value moment to capture."
+  "Check the DEBT lines from your last kg_read: HIGH on either graph? Dispatch a maintenance subagent per the /kg-maintain skill (it gets no preload; the skill holds the dispatch prompt)."
+  "Has a node's gist proved stale or vague in use? Sharpen it while the context is live."
+  "Are edges missing between nodes used today? One edge raises both nodes' standing against archival."
+  "Was an architectural decision made this session? A node with the rationale in notes, not only the conclusion."
+  "What would a later session wish had been recorded from this conversation? Write it."
+  "Wrapping up? Two questions: which nodes changed the outcome, and what was re-derived or corrected that the graph already held and never showed? Both earn kg_useful(session_id, ids=[...]); five is guidance, not a quota; send each one that earned it, judged by what happened."
+  "KG capture pulse: did the last exchange produce anything worth keeping? Write it before moving on."
 )
 
 case "$DEPTH" in

@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+Memory discipline that used to live in the recommended output style and in long-time users' own graphs now ships in the texts every session reads. A fresh install learns when to capture, how to sharpen a lesson met again, and when to wrap up, without a style or a grown graph to copy from.
+
+### Changed
+- **The kg-core description says when to capture and when to wrap up.** It names the moments a lesson lands (a fix that took several tries, a surprise, a user's correction) and says that a failure met again means its lesson missed something: the case is added and the gist sharpened to what the cases share. The wrap-up gets its own paragraph: when a task is done and before the final answer, walk back through the work, write what is still missing, and endorse what helped. It asks to be read in full at session start, since the body is now the reference behind it. The wording is neutral and precise, and the description uses 1,444 of the 1,536 characters a skill description may have.
+- **The kg-core body is the reference behind the description.** Rewritten in plain statements: session start and paging, recall across tiers, what to capture and where to place it, the two endorsement cases and their timing, levels, subagents, operations. It no longer repeats the description's own sentences.
+- **`kg_put_node` and `kg_read` carry their part.** A lesson that recurs gets its gist rewritten to what the cases share, not only another note; and the nodes whose gists concern the task are read in full.
+- **The stop-level budget notice names capture and endorsement.** At 90% of a quota window it now says to capture the lessons not yet written and endorse the nodes that helped, beside committing and writing the handover.
+- **Every instruction text the plugin emits is in one register: neutral and precise.** The tool descriptions, the preload header, the full-read nudge, the capture nudge and the reminder pulses state the situation, what to do and the mechanism, without emphasis or figurative phrasing, and each rule is literally correct as written.
+- **The recommended output style's Memory section keeps only the letter.** It no longer asks the agent to read the kg-core skill in full, and no longer repeats capture and search advice the plugin now gives itself.
+
 ## [0.17.0] - 2026-10-26
 
 Memory you can pin, and memory that speaks. A node you lock stays as you wrote it and always in view; a storage root can declare its own node fields; and the memory now says when a newer release exists, whether now is a good moment to update, and what changed, in a note to the agent. Also fixed: two linked nodes no longer trade places on every upkeep tick, and worktree detection reads nothing outside the home folder.

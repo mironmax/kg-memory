@@ -72,12 +72,12 @@ def test_bootstrap_header_directive():
     ctx = result["context"]
 
     check("still starts with preload marker", ctx.startswith("KG MEMORY PRELOADED"))
-    check("names itself PARTIAL", "PARTIAL view" in ctx, ctx[:200])
-    check("full read is REQUIRED", "REQUIRED before any substantive work" in ctx)
-    check("announce moved AFTER full read",
-          'AFTER that full read announce "I have recalled KG Memories"' in ctx)
+    check("names itself partial", "a partial render" in ctx, ctx[:200])
+    check("full read comes first", "Before any substantive work, call kg_read(session_id) once" in ctx)
+    check("announce comes after the full read",
+          'After that full read, announce "I have recalled KG Memories"' in ctx)
     check("old announce-on-scan wording gone", "after scanning both sections" not in ctx)
-    check("subagent warning kept", "Subagents never receive this preload" in ctx)
+    check("subagent warning kept", "Subagents do not receive this preload" in ctx)
     check("session id present", "dirsess" in ctx)
     check("fits budget", len(ctx) <= CLAUDE_PRELOAD_LIMIT, len(ctx))
 

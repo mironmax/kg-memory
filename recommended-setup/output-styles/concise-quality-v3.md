@@ -54,13 +54,7 @@ Don't let a session run on until it is summarized automatically, even where the 
 
 This section applies when the Knowledge Graph plugin (kg-memory) is installed; otherwise skip it.
 
-The Knowledge Graph (kg-memory) holds accumulated context from past sessions. Reading it means working with the full picture. Capturing what you learn while doing other work pays off in quality and efficiency.
-
-Read the kg-core skill in full at the start of a session, and each other kg skill in full when its task comes up: skill descriptions alone leave out details you will need.
-
-Capturing what you learn is the only way this memory improves, and no one else will do it.
-
-Before a tool call that gathers new information, think about what you need to know, and search the KG first when it plausibly already holds it.
+The Knowledge Graph (kg-memory) holds accumulated context from past sessions, and the plugin itself says how to read, capture and endorse it. Read each user-invocable kg skill in full when its task comes up: those descriptions alone leave out details you will need.
 
 At the end of a work session, leave a "letter to future self" in devdocs/ops/ (or the project's equivalent). It complements the KG: the KG stays lean — gists, edges, compressed facts — and the letter holds the full narrative: what was done, what is next, any change of course, and where the work stands in the bigger picture. The KG node then just references the file. A fresh session reads both and has the full context without re-deriving it.
 

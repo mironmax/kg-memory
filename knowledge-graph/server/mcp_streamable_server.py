@@ -196,7 +196,7 @@ def create_mcp_server() -> Server:
         return [
             Tool(
                 name="kg_read",
-                description="Read the knowledge graph. First call: pass cwd to initialize the session (no cwd: user memory only) — the result includes session_id; pass that session_id on every later call (cwd then optional). Without id/ids: full graph — active nodes (gist), archived anchors (id only), live edges — normally within the render budget, but oversized active gists can exceed it. A reply longer than the client keeps whole arrives in parts: each part says so, and kg_read(session_id, more=true) returns the next. With id or ids: full node content (gist + notes + touches + the node's edges); archived nodes get promoted to active. Reading several related nodes via ids in ONE call is cheaper than sequential single reads.",
+                description="Read the knowledge graph. First call: pass cwd to open the session (without cwd: user memory only); the result includes session_id, which goes on every later call (cwd then optional). Without id/ids: the full render, active nodes as gists, archived nodes as ids, live edges, within the render budget (oversized active gists can exceed it). A reply longer than the client keeps whole arrives in parts; each part says so, and kg_read(session_id, more=true) returns the next. With id or ids: the full node (gist, notes, touches, the node's edges); an archived node read this way is promoted to active. Read in full the nodes whose gists concern the task; several ids in one call cost less than one call per node.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -236,7 +236,7 @@ def create_mcp_server() -> Server:
             ),
             Tool(
                 name="kg_search",
-                description="Full-text search across node IDs, gists, notes, and touches in both graphs — reaches archived and orphaned nodes that no render shows. Use when a problem feels familiar, before asserting an assumption, and whenever a mature graph plausibly covers the topic: in a long-lived graph the needed fact is often buried under fresher work. Search is what reaches it, but being found feeds nothing on its own — a node you had to dig for, and that should have been on the surface, is a miss worth kg_useful.",
+                description="Full-text search over node ids, gists, notes and touches in both graphs. It reaches archived and orphaned nodes, which no render shows. Use it before deriving something the project may already hold, before asserting an assumption, and when a topic may have come up in earlier sessions. Being found by search does not feed a node's score: a node found this way that should have been on the surface is a miss, reported with kg_useful.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -255,7 +255,7 @@ def create_mcp_server() -> Server:
             ),
             Tool(
                 name="kg_put_node",
-                description="Create or update a node. level determines storage: 'user' for cross-project wisdom, 'project' for codebase-specific knowledge. If node ID exists, omitted fields stay unchanged, but notes and touches you send REPLACE the stored lists: to add a note to an existing node, read it (kg_read ids=[...]) and send the full list. A write built on a stale or partial view — the node changed since you last saw it, or you would replace notes you never read — is refused with the node as it stands; merge and call again. A write that leaves out stored notes is refused once, with those notes marked; send it again only if removing them is intended. One node holds one lesson. Before writing, walk back through what happened: each point where a different choice would have changed the outcome — or where a choice clearly worked — is a lesson, and a session rarely teaches just one. Each gets its own node, connected to the others; a lesson met again is sharpened in place, its new case added as a note. Search before creating to avoid duplicates. Connect related nodes with kg_put_edge.",
+                description="Create or update a node. level sets the storage: 'user' for knowledge that applies across projects, 'project' for this codebase. If the id exists, omitted fields stay unchanged, but notes and touches you send replace the stored lists: to add a note, read the node (kg_read ids=[...]) and send the full list. A write built on a stale or partial view (the node changed since you last saw it, or the write would replace notes you never read) is refused and the node is returned as it stands; merge and call again. A write that leaves out stored notes is refused once, with those notes marked; send it again only if removing them is intended. One node holds one lesson. Before writing, walk back through what happened: each point where a different choice would have changed the outcome, or where a choice clearly worked, is a lesson, and a session usually teaches more than one. Each gets its own node, connected to the others. When a lesson recurs, add the case as a note and rewrite the gist to what the cases share. Search before creating, to avoid duplicates. Connect related nodes with kg_put_edge.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -293,7 +293,7 @@ def create_mcp_server() -> Server:
             ),
             Tool(
                 name="kg_put_edge",
-                description="Create or update a relationship between two nodes or file paths. When a node for the subject already exists, link to it rather than re-describe it. Edges protect connected nodes from archival.",
+                description="Create or update a relationship between two nodes or file paths. When a node for the subject exists, link to it instead of restating it. Connected nodes score higher against archival.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -329,7 +329,7 @@ def create_mcp_server() -> Server:
             ),
             Tool(
                 name="kg_rename_node",
-                description="Rename a node, carrying everything with it — every edge in every graph (including cross-level edges in project graphs that are not currently loaded), creation time, endorsements, archival state and version history. It refuses a new id that would make some edge reach a different node (the same id existing at the other level). This is the ONLY safe way to change an id: kg_put_node under a new name plus kg_delete_node of the old one silently drops all of that. Use it when an id has drifted into carrying the claim instead of naming the subject, or when accumulated nodes reveal the vocabulary the graph actually uses. Ids are load-bearing: search weights them x3 and matches them for the recall gate.",
+                description="Rename a node and carry everything with it: every edge in every graph (including cross-level edges in project graphs not currently loaded), creation time, endorsements, archival state and version history. It refuses a new id that would make an edge reach a different node (the same id existing at the other level). This is the one safe way to change an id: kg_put_node under a new name plus kg_delete_node of the old one drops all of the above. Use it when an id has come to carry the claim instead of naming the subject, or when the graph's accumulated nodes show the vocabulary it uses. Ids weigh three times in search and are matched for the recall gate.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -400,7 +400,7 @@ def create_mcp_server() -> Server:
             ),
             Tool(
                 name="kg_useful",
-                description="Endorse the nodes that earned their place. An endorsement counts as usefulness and as recent use, and both fade (90-day half-life), so a node stays in view while sessions keep finding it useful, and sinks when they stop. TWO things earn it, both judged on what happened rather than on promise. It HELPED: it was in front of you and the work went differently for it — judge these at wrap-up against actual results, not on what seemed promising mid-flight. Or it was MISSING: it existed, this session needed it, and nothing surfaced it — you re-derived what the graph already held, took a wrong turn it would have prevented, or the user had to supply it. Send a miss the MOMENT you establish it, mid-session: the correction in front of you is the evidence, and only a miss can correct a wrong archival decision — a hit merely confirms a right one. If the missing node was archived, kg_read it as well: the read promotes it, the endorsement is what stops it sinking again. Five per session is the guidance, not a wall — spend them carefully, but if a session keeps turning up real signal (a run of misses after a correction), keep sending: a hard cap of 10 stops a flood, and past five the reply tells you how far over you are. One vote per node; reading a node is not an endorsement. A maintenance pass (kg_read maintenance=true) does not endorse: it credits a lesson it judges should stay in view with credits=1-3 by conviction. A credit works like an endorsement, so the lesson still stays only if sessions go on to find it useful.",
+                description="Endorse nodes. An endorsement counts as usefulness and as recent use in archival scoring; both fade with a 90-day half-life, so a node stays in view while sessions keep endorsing it and sinks when they stop. Two cases earn one, both judged on what happened. A node that helped: it was in context and the work went differently for it; judge these at wrap-up, against the result. A node that was missing: it existed, this session needed it, and nothing surfaced it (you re-derived what the graph held, took a wrong turn it would have prevented, or the user had to supply it); send this one as soon as it is established, since a session may end before its wrap-up, and a miss is the only signal that corrects an archival decision. If the missing node is archived, read it with kg_read as well: the read promotes it, and the endorsement keeps it from sinking again. The guidance is five per session; past five the reply says how far over you are; ten is the hard cap. One vote per node; reading a node is not an endorsement. A maintenance pass (kg_read maintenance=true) does not endorse: it credits a lesson it judges should stay in view with credits=1-3; a credit works like an endorsement, so the lesson stays only if sessions go on to endorse it.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -439,7 +439,7 @@ def create_mcp_server() -> Server:
             ),
             Tool(
                 name="kg_progress",
-                description="Track multi-step task progress across context compaction and session boundaries. Call with task_id only to read current state. Add state to write. Progress persists to disk. Writes also append the stamp to a bounded _trail ring returned by the read, so a later pass sees what earlier ones did — and, when the stamp says so, what they considered and DECLINED. Record a rejection there and it stops being re-litigated every pass.",
+                description="Track multi-step task progress across context compaction and session boundaries. Call with task_id only to read the current state; add state to write. Progress persists to disk. A write also appends its stamp to a bounded _trail ring returned by the read, so a later pass sees what earlier ones did and, when the stamp says so, what they considered and declined. A rejection recorded there is not reconsidered on every pass.",
                 inputSchema={
                     "type": "object",
                     "properties": {

@@ -93,8 +93,8 @@ try:
     # as one piece). Older servers return only the graph body — compose the
     # legacy header so a version-skewed pair still preloads.
     context = data.get("context") or (
-        "KG MEMORY PRELOADED — the knowledge graph below is already in context; "
-        "do NOT call kg_read for the full graph. session_id: "
+        "KG MEMORY PRELOADED: the knowledge graph below is in context, so a full kg_read "
+        "is not needed. session_id: "
         + data["session_id"]
         + " (pass it to every kg_* call). For node depth use "
         "kg_read(session_id, ids=[...]); for lookups use kg_search. "
