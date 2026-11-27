@@ -1,5 +1,7 @@
 # kg-memory: persistent memory for coding agents
 
+> **This repository is no longer maintained.** The project has moved in a different direction and development continues elsewhere. The code, the releases up to 0.17.0 and the `kg-memory` package on PyPI stay available as they are, but they will get no further updates or fixes, and issues and pull requests will not be answered.
+
 Your coding agent forgets everything when a session ends. kg-memory gives it a memory that lasts: how your project fits together, what was decided and why, how you like to work, and which mistakes were already made once. Claude Code and Codex CLI share it; Antigravity CLI support is experimental.
 
 It installs as a plugin for your agent plus a small server on your machine that holds the memory. It is free and open source (MIT), and it stays that way: no paid tier, no account, no API key, no telemetry. What it costs you is some context in each session and, only if you switch on background upkeep, some of your subscription quota ([details](#what-it-costs)).
